@@ -36,7 +36,7 @@ const emit = defineEmits<{
 }>();
 
 // VueFlow instance
-const { fitView, onNodesChange, onConnect, onEdgesChange, onEdgeUpdate } = useVueFlow();
+const { fitView, onNodesChange, onConnect, onEdgesChange, onEdgeUpdate, updateNodeInternals } = useVueFlow();
 
 // Local state for VueFlow
 const vueFlowNodes = ref<Node[]>([]);
@@ -126,6 +126,16 @@ watch(
   () => {
     vueFlowNodes.value = convertNodes();
     vueFlowEdges.value = convertEdges();
+    
+    // Force VueFlow to recalculate edge positions for all nodes
+    // This is needed when output order changes in decision nodes
+    setTimeout(() => {
+      props.definition.nodes.forEach(node => {
+        if (node.type === NodeType.DECISION) {
+          updateNodeInternals([node.id]);
+        }
+      });
+    }, 0);
   },
   { deep: true, immediate: true }
 );

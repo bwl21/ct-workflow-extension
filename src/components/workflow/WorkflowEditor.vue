@@ -22,6 +22,7 @@ const workflowJson = ref('');
 const showEdgeList = ref(false);
 const highlightedEdgeId = ref<string | null>(null);
 const edgeRefs = ref<Record<string, any>>({});
+const collapsedOutputs = ref<Set<number>>(new Set());
 
 const currentWorkflow = computed(() => workflowStore.currentWorkflow);
 
@@ -171,6 +172,7 @@ function updateFieldOptions(index: number, value: string) {
 
 // Drag and Drop for field sorting
 const draggedFieldIndex = ref<number | null>(null);
+const draggedOutputIndex = ref<number | null>(null);
 
 function onFieldDragStart(index: number) {
   draggedFieldIndex.value = index;
@@ -199,6 +201,39 @@ function onFieldDragEnd() {
   draggedFieldIndex.value = null;
 }
 
+// Drag and Drop for output sorting
+function onOutputDragStart(index: number) {
+  draggedOutputIndex.value = index;
+}
+
+function onOutputDragOver(event: DragEvent, index: number) {
+  event.preventDefault();
+  if (draggedOutputIndex.value === null || draggedOutputIndex.value === index) return;
+  
+  if (!selectedNode.value || !selectedNode.value.data.outputs) return;
+  
+  const outputs = selectedNode.value.data.outputs;
+  const draggedOutput = outputs[draggedOutputIndex.value];
+  
+  // Remove from old position
+  outputs.splice(draggedOutputIndex.value, 1);
+  
+  // Insert at new position
+  outputs.splice(index, 0, draggedOutput);
+  
+  // Update dragged index
+  draggedOutputIndex.value = index;
+}
+
+function onOutputDragEnd() {
+  draggedOutputIndex.value = null;
+  
+  // Force update to trigger VueFlow re-render after drag
+  if (currentWorkflow.value) {
+    workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
+  }
+}
+
 function moveFieldUp(index: number) {
   if (!selectedNode.value || !selectedNode.value.data.fields || index === 0) return;
   const fields = selectedNode.value.data.fields;
@@ -210,6 +245,29 @@ function moveFieldDown(index: number) {
   const fields = selectedNode.value.data.fields;
   if (index === fields.length - 1) return;
   [fields[index], fields[index + 1]] = [fields[index + 1], fields[index]];
+}
+
+function moveOutputUp(index: number) {
+  if (!selectedNode.value || !selectedNode.value.data.outputs || index === 0) return;
+  const outputs = selectedNode.value.data.outputs;
+  [outputs[index - 1], outputs[index]] = [outputs[index], outputs[index - 1]];
+  
+  // Force update to trigger VueFlow re-render
+  if (currentWorkflow.value) {
+    workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
+  }
+}
+
+function moveOutputDown(index: number) {
+  if (!selectedNode.value || !selectedNode.value.data.outputs) return;
+  const outputs = selectedNode.value.data.outputs;
+  if (index === outputs.length - 1) return;
+  [outputs[index], outputs[index + 1]] = [outputs[index + 1], outputs[index]];
+  
+  // Force update to trigger VueFlow re-render
+  if (currentWorkflow.value) {
+    workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
+  }
 }
 
 function showWorkflowJson() {
@@ -366,6 +424,36 @@ function removeOutput(index: number) {
   selectedNode.value.data.outputs.splice(index, 1);
 }
 
+function toggleOutputCollapse(index: number) {
+  if (collapsedOutputs.value.has(index)) {
+    collapsedOutputs.value.delete(index);
+  } else {
+    collapsedOutputs.value.add(index);
+  }
+}
+
+function collapseAllOutputs() {
+  if (!selectedNode.value?.data.outputs) return;
+  collapsedOutputs.value = new Set(
+    selectedNode.value.data.outputs.map((_, index) => index)
+  );
+}
+
+function expandAllOutputs() {
+  collapsedOutputs.value = new Set();
+}
+
+function toggleAllOutputs() {
+  if (!selectedNode.value?.data.outputs) return;
+  // Wenn alle eingeklappt sind, dann ausklappen, sonst einklappen
+  const allCollapsed = collapsedOutputs.value.size === selectedNode.value.data.outputs.length;
+  if (allCollapsed) {
+    expandAllOutputs();
+  } else {
+    collapseAllOutputs();
+  }
+}
+
 function handleNodeClick(nodeId: string) {
   if (!currentWorkflow.value) return;
   const node = currentWorkflow.value.definition.nodes.find(n => n.id === nodeId);
@@ -460,9 +548,12 @@ function applyAutoLayout() {
     </div>
 
     <!-- Create Dialog -->
-    <div v-if="showCreateDialog" class="modal-overlay" @click.self="showCreateDialog = false">
+    <div v-if="showCreateDialog" class="modal-overlay">
       <div class="modal-content">
-        <h3>Neuer Workflow</h3>
+        <div class="modal-header">
+          <h3>Neuer Workflow</h3>
+          <button class="modal-close-btn" @click="showCreateDialog = false" title="Schließen">✕</button>
+        </div>
         <div class="ct-form-group">
           <label class="ct-form-label">Name</label>
           <input v-model="workflowName" type="text" class="ct-form-control" />
@@ -568,19 +659,23 @@ function applyAutoLayout() {
     </div>
 
     <!-- Node Editor Dialog -->
-    <div v-if="showNodeEditor && selectedNode" class="modal-overlay" @click.self="showNodeEditor = false">
+    <div v-if="showNodeEditor && selectedNode" class="modal-overlay">
       <div class="modal-content modal-large">
-        <h3>Knoten bearbeiten</h3>
-
-        <div class="ct-form-group">
-          <label class="ct-form-label">Label</label>
-          <input v-model="selectedNode.label" type="text" class="ct-form-control" />
+        <div class="modal-header-sticky">
+          <h3>Knoten bearbeiten: {{ selectedNode.label }}</h3>
+          <button class="modal-close-btn" @click="showNodeEditor = false" title="Schließen">✕</button>
         </div>
 
-        <div class="ct-form-group">
-          <label class="ct-form-label">Beschreibung</label>
-          <textarea v-model="selectedNode.description" class="ct-form-control" rows="2" />
-        </div>
+        <div class="modal-body-scrollable">
+          <div class="ct-form-group">
+            <label class="ct-form-label">Label</label>
+            <input v-model="selectedNode.label" type="text" class="ct-form-control" />
+          </div>
+
+          <div class="ct-form-group">
+            <label class="ct-form-label">Beschreibung</label>
+            <textarea v-model="selectedNode.description" class="ct-form-control" rows="2" />
+          </div>
 
         <!-- Task Fields -->
         <div v-if="selectedNode.type === NodeType.TASK && selectedNode.data.fields" class="task-fields">
@@ -712,7 +807,17 @@ function applyAutoLayout() {
 
         <!-- Decision Node -->
         <div v-if="selectedNode.type === NodeType.DECISION" class="decision-config">
-          <h4>Ausgänge</h4>
+          <div class="decision-header">
+            <h4>Ausgänge</h4>
+            <div v-if="selectedNode.data.outputs && selectedNode.data.outputs.length > 0" class="collapse-controls">
+              <button 
+                class="ct-btn ct-btn-sm" 
+                @click="toggleAllOutputs"
+              >
+                {{ collapsedOutputs.size === selectedNode.data.outputs.length ? 'Alle aufklappen' : 'Alle zuklappen' }}
+              </button>
+            </div>
+          </div>
           <p class="info-text">
             Definiere die möglichen Ausgänge dieses Entscheidungsknotens. Jeder Ausgang kann eine Bedingung haben.
           </p>
@@ -729,28 +834,59 @@ function applyAutoLayout() {
               v-for="(output, index) in selectedNode.data.outputs" 
               :key="output.id"
               class="output-item"
+              draggable="true"
+              @dragstart="onOutputDragStart(index)"
+              @dragover="onOutputDragOver($event, index)"
+              @dragend="onOutputDragEnd"
+              :class="{ 'dragging': draggedOutputIndex === index }"
             >
-              <div class="output-header">
+              <div class="output-header" @click="toggleOutputCollapse(index)">
+                <button 
+                  class="collapse-btn"
+                  type="button"
+                  :title="collapsedOutputs.has(index) ? 'Ausklappen' : 'Einklappen'"
+                >
+                  {{ collapsedOutputs.has(index) ? '▶' : '▼' }}
+                </button>
+                <span class="drag-handle" title="Ziehen zum Sortieren">⋮⋮</span>
                 <span class="output-number">{{ index + 1 }}</span>
                 <input 
                   v-model="output.label" 
                   type="text" 
                   class="ct-form-control" 
                   placeholder="Label (z.B. 'Genehmigt')"
+                  @click.stop
                 />
                 <input 
                   v-model="output.color" 
                   type="color" 
                   class="color-picker"
                   :title="'Farbe für ' + output.label"
+                  @click.stop
                 />
-                <label class="checkbox-label">
+                <label class="checkbox-label" @click.stop>
                   <input v-model="output.isDefault" type="checkbox" />
                   Default
                 </label>
                 <button 
                   class="ct-btn ct-btn-sm" 
-                  @click="removeOutput(index)"
+                  @click.stop="moveOutputUp(index)"
+                  :disabled="index === 0"
+                  title="Nach oben"
+                >
+                  ↑
+                </button>
+                <button 
+                  class="ct-btn ct-btn-sm" 
+                  @click.stop="moveOutputDown(index)"
+                  :disabled="index === selectedNode.data.outputs.length - 1"
+                  title="Nach unten"
+                >
+                  ↓
+                </button>
+                <button 
+                  class="ct-btn ct-btn-sm" 
+                  @click.stop="removeOutput(index)"
                   :disabled="selectedNode.data.outputs.length <= 1"
                   title="Löschen"
                 >
@@ -758,7 +894,7 @@ function applyAutoLayout() {
                 </button>
               </div>
               
-              <div v-if="!output.isDefault && output.condition" class="output-condition">
+              <div v-if="!collapsedOutputs.has(index) && !output.isDefault && output.condition" class="output-condition">
                 <label class="ct-form-label">Bedingung</label>
                 <div class="ct-form-group">
                   <select v-model="output.condition.engine" class="ct-form-control">
@@ -775,7 +911,7 @@ function applyAutoLayout() {
                 />
               </div>
               
-              <div v-else class="default-info">
+              <div v-else-if="!collapsedOutputs.has(index)" class="default-info">
                 ℹ️ Dieser Ausgang wird verwendet, wenn keine andere Bedingung zutrifft
               </div>
             </div>
@@ -785,8 +921,9 @@ function applyAutoLayout() {
             + Ausgang hinzufügen
           </button>
         </div>
+        </div>
 
-        <div class="modal-actions">
+        <div class="modal-actions-sticky">
           <button class="ct-btn ct-btn-secondary" @click="showNodeEditor = false">Abbrechen</button>
           <button class="ct-btn ct-btn-primary" @click="saveNode">Speichern</button>
         </div>
@@ -794,8 +931,9 @@ function applyAutoLayout() {
     </div>
 
     <!-- Edge Editor Modal -->
-    <div v-if="showEdgeEditor && selectedEdge" class="modal-overlay" @click.self="showEdgeEditor = false">
+    <div v-if="showEdgeEditor && selectedEdge" class="modal-overlay">
       <div class="modal-content modal-large">
+        <button class="modal-close-btn" @click="showEdgeEditor = false" title="Schließen">✕</button>
         <EdgeEditor
           :edge="selectedEdge"
           @save="saveEdge"
@@ -806,13 +944,16 @@ function applyAutoLayout() {
     </div>
 
     <!-- JSON Modal -->
-    <div v-if="showJsonModal" class="modal-overlay" @click.self="showJsonModal = false">
+    <div v-if="showJsonModal" class="modal-overlay">
       <div class="modal-content modal-large">
         <div class="modal-header">
           <h3>Workflow JSON</h3>
-          <button class="ct-btn ct-btn-secondary" @click="copyJsonToClipboard">
-            📋 Kopieren
-          </button>
+          <div>
+            <button class="ct-btn ct-btn-secondary" @click="copyJsonToClipboard">
+              📋 Kopieren
+            </button>
+            <button class="modal-close-btn" @click="showJsonModal = false" title="Schließen">✕</button>
+          </div>
         </div>
         <div class="json-container">
           <pre><code>{{ workflowJson }}</code></pre>
@@ -986,12 +1127,15 @@ function applyAutoLayout() {
   border-radius: 8px;
   max-width: 500px;
   width: 90%;
-  max-height: 80vh;
-  overflow-y: auto;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-large {
   max-width: 900px;
+  width: 95%;
 }
 
 .modal-header {
@@ -1033,6 +1177,61 @@ function applyAutoLayout() {
   gap: 0.5rem;
   justify-content: flex-end;
   margin-top: 1.5rem;
+}
+
+.modal-header-sticky {
+  flex-shrink: 0;
+  background: white;
+  z-index: 10;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #666;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.modal-close-btn:hover {
+  background: #f5f5f5;
+  color: #333;
+}
+
+.modal-body-scrollable {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.5rem;
+  min-height: 0;
+}
+
+.modal-actions-sticky {
+  flex-shrink: 0;
+  background: white;
+  z-index: 10;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
 }
 
 .task-fields {
@@ -1152,6 +1351,24 @@ function applyAutoLayout() {
 
 .decision-config {
   margin-top: 1rem;
+}
+
+.decision-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 5;
+  padding: 0.5rem 0;
+  margin-top: -0.5rem;
+}
+
+.collapse-controls {
+  display: flex;
+  gap: 0.25rem;
 }
 
 .decision-config h4 {
@@ -1298,7 +1515,7 @@ function applyAutoLayout() {
 .outputs-list {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.5rem;
   margin-bottom: 1rem;
 }
 
@@ -1306,14 +1523,61 @@ function applyAutoLayout() {
   background: #f8f9fa;
   border: 1px solid #dee2e6;
   border-radius: 6px;
-  padding: 1rem;
+  padding: 0.5rem;
+  cursor: move;
+  transition: all 0.2s;
+}
+
+.output-item:hover {
+  border-color: #bbb;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.output-item.dragging {
+  opacity: 0.5;
+  border-color: var(--ct-primary);
+  background: #f0f8ff;
+}
+
+.drag-handle {
+  cursor: grab;
+  color: #999;
+  font-size: 1rem;
+  user-select: none;
+  padding: 0 0.25rem;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
 }
 
 .output-header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.output-header:hover {
+  background: #f5f5f5;
+}
+
+.collapse-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
 }
 
 .output-number {
@@ -1344,8 +1608,8 @@ function applyAutoLayout() {
 }
 
 .output-condition {
-  margin-top: 0.75rem;
-  padding: 0.75rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
   background: white;
   border-radius: 4px;
 }

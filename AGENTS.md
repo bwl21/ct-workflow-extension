@@ -38,6 +38,9 @@ Nur folgende Dateien dürfen im Root-Verzeichnis bleiben:
 ### Commit-Nachrichten
 - Co-authored-by: Ona <no-reply@ona.com> hinzufügen
 - Konventionen des Repositories befolgen
+- **NIEMALS ohne explizite Erlaubnis committen**
+- Immer erst fragen: "Soll ich committen?"
+- Auch wenn einmal Erlaubnis erteilt wurde, gilt das NICHT für weitere Commits
 
 ### Testing
 - Änderungen vor Commit bauen und testen
