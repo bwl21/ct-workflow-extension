@@ -69,12 +69,13 @@ const viewBox = computed(() => {
             :y1="workflow.definition.nodes.find((n: any) => n.id === edge.source)?.position.y"
             :x2="workflow.definition.nodes.find((n: any) => n.id === edge.target)?.position.x"
             :y2="workflow.definition.nodes.find((n: any) => n.id === edge.target)?.position.y"
-            stroke="#999"
-            stroke-width="2"
+            :stroke="edge.isDefault ? '#ffc107' : edge.condition ? '#007bff' : '#999'"
+            :stroke-width="edge.isDefault ? 3 : 2"
+            :stroke-dasharray="edge.isDefault ? '5,5' : 'none'"
             marker-end="url(#arrowhead)"
           />
           <text
-            v-if="edge.label"
+            v-if="edge.label || edge.isDefault || edge.condition"
             :x="
               ((workflow.definition.nodes.find((n: any) => n.id === edge.source)?.position.x || 0) +
                 (workflow.definition.nodes.find((n: any) => n.id === edge.target)?.position.x || 0)) /
@@ -83,12 +84,14 @@ const viewBox = computed(() => {
             :y="
               ((workflow.definition.nodes.find((n: any) => n.id === edge.source)?.position.y || 0) +
                 (workflow.definition.nodes.find((n: any) => n.id === edge.target)?.position.y || 0)) /
-              2
+              2 - 10
             "
             class="edge-label"
             text-anchor="middle"
           >
-            {{ edge.label }}
+            <tspan v-if="edge.label">{{ edge.label }}</tspan>
+            <tspan v-if="edge.isDefault" class="badge-default"> [Default] </tspan>
+            <tspan v-if="edge.condition" class="badge-condition"> [{{ edge.condition.engine }}] </tspan>
           </text>
         </g>
       </g>

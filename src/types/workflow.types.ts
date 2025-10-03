@@ -45,7 +45,23 @@ export interface NodeData {
   actionConfig?: Record<string, any>;
 
   // Für Decision-Knoten
-  conditions?: Condition[];
+  engine?: RuleEngine;
+  simpleRules?: SimpleRules;
+  jsonLogic?: any;
+  customExpression?: string;
+}
+
+export type RuleEngine = 'simple' | 'jsonlogic' | 'custom';
+
+export interface SimpleRules {
+  conditions: SimpleCondition[];
+  logic: 'AND' | 'OR';
+}
+
+export interface SimpleCondition {
+  field: string;
+  operator: ConditionOperator;
+  value: any;
 }
 
 export interface FormField {
@@ -77,7 +93,12 @@ export interface WorkflowEdge {
   source: string;
   target: string;
   label?: string;
-  condition?: Condition;
+  // Edge condition (for decision nodes)
+  condition?: {
+    engine: RuleEngine;
+    rule: any;
+  };
+  isDefault?: boolean; // Fallback edge if no condition matches
 }
 
 export enum NodeType {
@@ -112,7 +133,14 @@ export enum ConditionOperator {
   NOT_EQUALS = 'notEquals',
   GREATER_THAN = 'greaterThan',
   LESS_THAN = 'lessThan',
+  GREATER_THAN_OR_EQUAL = 'greaterThanOrEqual',
+  LESS_THAN_OR_EQUAL = 'lessThanOrEqual',
   CONTAINS = 'contains',
+  NOT_CONTAINS = 'notContains',
+  STARTS_WITH = 'startsWith',
+  ENDS_WITH = 'endsWith',
+  IS_EMPTY = 'isEmpty',
+  IS_NOT_EMPTY = 'isNotEmpty',
 }
 
 /**

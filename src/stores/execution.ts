@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import type { WorkflowExecution, StepHistory } from '@/types/workflow.types';
 import { ExecutionStatus, StepStatus, NodeType } from '@/types/workflow.types';
 import { useWorkflowStore } from './workflow';
+import { evaluateRules } from '@/utils/rule-evaluator';
 
 export const useExecutionStore = defineStore('execution', () => {
   // State - Executions grouped by workflow
@@ -143,17 +144,54 @@ export const useExecutionStore = defineStore('execution', () => {
     const currentNode = workflow.definition.nodes.find((n) => n.id === execution.currentNodeId);
     if (!currentNode) return;
 
-    // Find outgoing edge
-    const outgoingEdge = workflow.definition.edges.find((e) => e.source === currentNode.id);
+    // Find outgoing edges
+    const outgoingEdges = workflow.definition.edges.filter((e) => e.source === currentNode.id);
 
-    if (!outgoingEdge) {
+    if (outgoingEdges.length === 0) {
       // No more nodes, complete workflow
       execution.status = ExecutionStatus.COMPLETED;
       execution.completedAt = new Date();
       return;
     }
 
-    const nextNode = workflow.definition.nodes.find((n) => n.id === outgoingEdge.target);
+    let selectedEdge;
+
+    // For DECISION nodes: evaluate conditions
+    if (currentNode.type === NodeType.DECISION) {
+      // Try to find an edge whose condition is met
+      for (const edge of outgoingEdges) {
+        if (edge.condition) {
+          const conditionMet = evaluateRules(
+            edge.condition.engine,
+            edge.condition.rule,
+            execution.context.variables
+          );
+          
+          if (conditionMet) {
+            selectedEdge = edge;
+            break;
+          }
+        }
+      }
+
+      // If no condition matched, use default edge
+      if (!selectedEdge) {
+        selectedEdge = outgoingEdges.find(e => e.isDefault);
+      }
+
+      // If still no edge, log error and complete
+      if (!selectedEdge) {
+        console.error('No matching condition and no default edge found for decision node');
+        execution.status = ExecutionStatus.FAILED;
+        execution.completedAt = new Date();
+        return;
+      }
+    } else {
+      // For non-decision nodes: use first edge
+      selectedEdge = outgoingEdges[0];
+    }
+
+    const nextNode = workflow.definition.nodes.find((n) => n.id === selectedEdge.target);
     if (!nextNode) return;
 
     // Check if next node is END
