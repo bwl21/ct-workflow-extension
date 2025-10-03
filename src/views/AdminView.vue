@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { useWorkflowStore } from '@/stores/workflow';
 import WorkflowEditor from '@/components/workflow/WorkflowEditor.vue';
 import type { Workflow } from '@/types/workflow.types';
+import { setupDemoData } from '@/utils/demo-setup';
 
 const workflowStore = useWorkflowStore();
 
@@ -14,21 +15,26 @@ const selectedWorkflow = ref<Workflow | null>(null);
 const newWorkflow = ref({
   name: '',
   description: '',
+  category: 'Allgemein',
 });
 
 const workflows = computed(() => workflowStore.workflows);
 
 function openCreateModal() {
-  newWorkflow.value = { name: '', description: '' };
+  newWorkflow.value = { name: '', description: '', category: 'Allgemein' };
   showCreateModal.value = true;
 }
 
 function createWorkflow() {
   if (!newWorkflow.value.name) return;
 
-  workflowStore.createWorkflow(newWorkflow.value.name, newWorkflow.value.description);
+  workflowStore.createWorkflow(
+    newWorkflow.value.name, 
+    newWorkflow.value.description,
+    newWorkflow.value.category
+  );
   showCreateModal.value = false;
-  newWorkflow.value = { name: '', description: '' };
+  newWorkflow.value = { name: '', description: '', category: 'Allgemein' };
 }
 
 function openEditModal(workflow: Workflow) {
@@ -56,6 +62,13 @@ function deleteWorkflow() {
   selectedWorkflow.value = null;
 }
 
+function resetDemoData() {
+  if (confirm('Alle Workflows löschen und Demo-Daten neu laden?')) {
+    workflowStore.clearAllWorkflows();
+    setupDemoData();
+  }
+}
+
 function formatDate(date: Date): string {
   return new Date(date).toLocaleDateString('de-DE', {
     day: '2-digit',
@@ -77,9 +90,14 @@ function formatDate(date: Date): string {
             <h2 class="ct-h4 ct-mb-0">Workflow-Verwaltung</h2>
             <p class="ct-text-muted ct-mb-0">Erstelle und verwalte Workflows für deine Organisation</p>
           </div>
-          <button class="ct-btn ct-btn-primary" @click="openCreateModal">
-            <span class="icon">+</span> Neuer Workflow
-          </button>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="ct-btn ct-btn-secondary" @click="resetDemoData" title="Demo-Daten neu laden">
+              🔄 Demo-Daten
+            </button>
+            <button class="ct-btn ct-btn-primary" @click="openCreateModal">
+              <span class="icon">+</span> Neuer Workflow
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -92,6 +110,7 @@ function formatDate(date: Date): string {
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Kategorie</th>
                 <th>Beschreibung</th>
                 <th>Schritte</th>
                 <th>Erstellt</th>
@@ -105,10 +124,13 @@ function formatDate(date: Date): string {
                   <strong>{{ workflow.name }}</strong>
                 </td>
                 <td>
+                  <span class="ct-badge ct-badge-secondary">{{ workflow.category }}</span>
+                </td>
+                <td>
                   <span class="description-text">{{ workflow.description || '-' }}</span>
                 </td>
                 <td>
-                  <span class="ct-badge ct-badge-primary">{{ workflow.nodes.length }} Schritte</span>
+                  <span class="ct-badge ct-badge-primary">{{ workflow.definition.nodes.length }} Schritte</span>
                 </td>
                 <td>
                   <small class="ct-text-muted">{{ formatDate(workflow.createdAt) }}</small>
@@ -169,6 +191,15 @@ function formatDate(date: Date): string {
               class="ct-form-control"
               placeholder="z.B. Mitgliederaufnahme"
               autofocus
+            />
+          </div>
+          <div class="ct-form-group">
+            <label class="ct-form-label">Kategorie *</label>
+            <input
+              v-model="newWorkflow.category"
+              type="text"
+              class="ct-form-control"
+              placeholder="z.B. Mitgliederverwaltung"
             />
           </div>
           <div class="ct-form-group ct-mb-0">

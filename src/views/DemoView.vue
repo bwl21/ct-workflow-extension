@@ -11,15 +11,22 @@ const activeTab = ref<'editor' | 'executor'>('editor');
 
 function createExampleWorkflow() {
   // Create example workflow
-  const workflow = {
+  const workflow: Workflow = {
     id: generateId(),
     name: 'Mitgliederaufnahme',
     description: 'Beispiel-Workflow für die Aufnahme neuer Mitglieder',
-    nodes: [],
-    edges: [],
+    category: 'Mitgliederverwaltung',
+    definition: {
+      version: '1.0.0',
+      nodes: [],
+      edges: [],
+      metadata: {
+        description: 'Beispiel-Workflow für die Aufnahme neuer Mitglieder',
+      },
+    },
     createdAt: new Date(),
     updatedAt: new Date(),
-  } as Workflow;
+  };
 
   // Start Node
   const startNode = {
@@ -134,10 +141,10 @@ function createExampleWorkflow() {
   } as WorkflowNode;
 
   // Add nodes
-  workflow.nodes = [startNode, taskPersonal, taskAddress, taskInterests, endNode];
+  workflow.definition.nodes = [startNode, taskPersonal, taskAddress, taskInterests, endNode];
 
   // Add edges
-  workflow.edges = [
+  workflow.definition.edges = [
     {
       id: 'edge-1',
       source: 'node-start',

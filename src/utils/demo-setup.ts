@@ -11,24 +11,33 @@ export function setupDemoData() {
   const userStore = useUserStore();
 
   // Only setup if no workflows exist
-  if (workflowStore.workflows.length > 0) {
+  const allWorkflows = workflowStore.getAllWorkflows();
+  if (allWorkflows.length > 0) {
     // Grant permissions for existing workflows
-    workflowStore.workflows.forEach((workflow) => {
+    allWorkflows.forEach((workflow) => {
       userStore.grantPermission(workflow.id, userStore.currentUser.id, true, true);
     });
     return;
   }
 
-  // Create example workflow
-  const workflow = {
-    id: generateId(),
+  // Create example workflow with V2 structure
+  const workflowId = generateId();
+  const workflow: Workflow = {
+    id: workflowId,
     name: 'Mitgliederaufnahme',
     description: 'Beispiel-Workflow für die Aufnahme neuer Mitglieder',
-    nodes: [],
-    edges: [],
+    category: 'Mitgliederverwaltung',
+    definition: {
+      version: '1.0.0',
+      nodes: [],
+      edges: [],
+      metadata: {
+        description: 'Beispiel-Workflow für die Aufnahme neuer Mitglieder',
+      },
+    },
     createdAt: new Date(),
     updatedAt: new Date(),
-  } as Workflow;
+  };
 
   // Start Node
   const startNode = {
@@ -116,11 +125,11 @@ export function setupDemoData() {
     data: {},
   } as WorkflowNode;
 
-  // Add nodes
-  workflow.nodes = [startNode, taskPersonal, taskAddress, endNode];
+  // Add nodes to definition
+  workflow.definition.nodes = [startNode, taskPersonal, taskAddress, endNode];
 
-  // Add edges
-  workflow.edges = [
+  // Add edges to definition
+  workflow.definition.edges = [
     {
       id: 'edge-1',
       source: 'node-start',
@@ -138,14 +147,11 @@ export function setupDemoData() {
     },
   ];
 
-  // Add to store
-  workflowStore.workflows.push(workflow);
+  // Add to store using the new structure
+  workflowStore.addWorkflow(workflow);
 
   // Grant permission to current user
   userStore.grantPermission(workflow.id, userStore.currentUser.id, true, true);
-
-  // Save to localStorage
-  localStorage.setItem('workflows', JSON.stringify(workflowStore.workflows));
 
   console.info('✓ Demo workflow created and permissions granted');
 }

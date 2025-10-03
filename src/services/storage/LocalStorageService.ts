@@ -75,7 +75,7 @@ export class LocalStorageService implements StorageService {
     }));
 
     if (userId) {
-      executions = executions.filter((e: WorkflowExecution) => e.userId === userId);
+      executions = executions.filter((e: WorkflowExecution) => e.context.userId === userId);
     }
 
     return executions;

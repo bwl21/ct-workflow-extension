@@ -32,6 +32,10 @@ const availableVariables = computed(() => {
   return Object.keys(props.context.workflowContext);
 });
 
+const formatVariable = (v: string) => {
+  return `{{${v}}}`;
+};
+
 // Unused for now, but kept for future feature
 // const insertVariable = (field: 'to' | 'cc' | 'bcc' | 'subject' | 'body', variable: string) => {
 //   localConfig.value[field] += `{{${variable}}}`;
@@ -108,7 +112,7 @@ const availableVariables = computed(() => {
       <label class="ct-form-label">Verfügbare Variablen</label>
       <div class="variables-list">
         <code v-for="v in availableVariables" :key="v" class="variable-tag">
-          {{ `{{${v}}}` }}
+          {{ formatVariable(v) }}
         </code>
       </div>
       <small class="ct-form-text">

@@ -207,7 +207,7 @@ export class ChurchToolsStorageService implements StorageService {
     let executions = values.map((v) => JSON.parse(v.value));
 
     if (userId) {
-      executions = executions.filter((e: WorkflowExecution) => e.userId === userId);
+      executions = executions.filter((e: WorkflowExecution) => e.context.userId === userId);
     }
 
     return executions;

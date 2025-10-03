@@ -5,14 +5,18 @@ import { ExecutionStatus, StepStatus, NodeType } from '@/types/workflow.types';
 import { useWorkflowStore } from './workflow';
 
 export const useExecutionStore = defineStore('execution', () => {
-  // State
-  const executions = ref<WorkflowExecution[]>([]);
+  // State - Executions grouped by workflow
+  const executionsByWorkflow = ref<Map<string, WorkflowExecution[]>>(new Map());
   const currentExecutionId = ref<string | null>(null);
 
   // Getters
   const currentExecution = computed(() => {
     if (!currentExecutionId.value) return null;
-    return executions.value.find((e) => e.id === currentExecutionId.value) || null;
+    for (const executions of executionsByWorkflow.value.values()) {
+      const execution = executions.find((e) => e.id === currentExecutionId.value);
+      if (execution) return execution;
+    }
+    return null;
   });
 
   const currentNode = computed(() => {
@@ -20,7 +24,21 @@ export const useExecutionStore = defineStore('execution', () => {
     const workflowStore = useWorkflowStore();
     const workflow = workflowStore.getWorkflowById(currentExecution.value.workflowId);
     if (!workflow) return null;
-    return workflow.nodes.find((n) => n.id === currentExecution.value!.currentNodeId) || null;
+    return (
+      workflow.definition.nodes.find((n) => n.id === currentExecution.value!.currentNodeId) || null
+    );
+  });
+
+  const getWorkflowExecutions = (workflowId: string): WorkflowExecution[] => {
+    return executionsByWorkflow.value.get(workflowId) || [];
+  };
+
+  const getAllExecutions = computed(() => {
+    const all: WorkflowExecution[] = [];
+    for (const executions of executionsByWorkflow.value.values()) {
+      all.push(...executions);
+    }
+    return all;
   });
 
   // Actions
@@ -33,7 +51,7 @@ export const useExecutionStore = defineStore('execution', () => {
     }
 
     // Find start node
-    const startNode = workflow.nodes.find((n) => n.type === NodeType.START);
+    const startNode = workflow.definition.nodes.find((n) => n.type === NodeType.START);
     if (!startNode) {
       throw new Error('No start node found');
     }
@@ -52,7 +70,11 @@ export const useExecutionStore = defineStore('execution', () => {
       startedAt: new Date(),
     };
 
-    executions.value.push(execution);
+    // Add to workflow's execution list
+    const workflowExecutions = executionsByWorkflow.value.get(workflowId) || [];
+    workflowExecutions.push(execution);
+    executionsByWorkflow.value.set(workflowId, workflowExecutions);
+    
     currentExecutionId.value = execution.id;
 
     // Move to first real node
@@ -62,7 +84,12 @@ export const useExecutionStore = defineStore('execution', () => {
   }
 
   function completeStep(executionId: string, inputs: Record<string, any>) {
-    const execution = executions.value.find((e) => e.id === executionId);
+    let execution: WorkflowExecution | undefined;
+    for (const executions of executionsByWorkflow.value.values()) {
+      execution = executions.find((e) => e.id === executionId);
+      if (execution) break;
+    }
+    
     if (!execution) {
       throw new Error('Execution not found');
     }
@@ -73,7 +100,7 @@ export const useExecutionStore = defineStore('execution', () => {
       throw new Error('Workflow not found');
     }
 
-    const currentNode = workflow.nodes.find((n) => n.id === execution.currentNodeId);
+    const currentNode = workflow.definition.nodes.find((n) => n.id === execution.currentNodeId);
     if (!currentNode) {
       throw new Error('Current node not found');
     }
@@ -101,18 +128,23 @@ export const useExecutionStore = defineStore('execution', () => {
   }
 
   function moveToNextNode(executionId: string) {
-    const execution = executions.value.find((e) => e.id === executionId);
+    let execution: WorkflowExecution | undefined;
+    for (const executions of executionsByWorkflow.value.values()) {
+      execution = executions.find((e) => e.id === executionId);
+      if (execution) break;
+    }
+    
     if (!execution) return;
 
     const workflowStore = useWorkflowStore();
     const workflow = workflowStore.getWorkflowById(execution.workflowId);
     if (!workflow) return;
 
-    const currentNode = workflow.nodes.find((n) => n.id === execution.currentNodeId);
+    const currentNode = workflow.definition.nodes.find((n) => n.id === execution.currentNodeId);
     if (!currentNode) return;
 
     // Find outgoing edge
-    const outgoingEdge = workflow.edges.find((e) => e.source === currentNode.id);
+    const outgoingEdge = workflow.definition.edges.find((e) => e.source === currentNode.id);
 
     if (!outgoingEdge) {
       // No more nodes, complete workflow
@@ -121,7 +153,7 @@ export const useExecutionStore = defineStore('execution', () => {
       return;
     }
 
-    const nextNode = workflow.nodes.find((n) => n.id === outgoingEdge.target);
+    const nextNode = workflow.definition.nodes.find((n) => n.id === outgoingEdge.target);
     if (!nextNode) return;
 
     // Check if next node is END
@@ -136,9 +168,32 @@ export const useExecutionStore = defineStore('execution', () => {
   }
 
   function cancelExecution(executionId: string) {
-    const execution = executions.value.find((e) => e.id === executionId);
-    if (execution) {
-      execution.status = ExecutionStatus.CANCELLED;
+    for (const executions of executionsByWorkflow.value.values()) {
+      const execution = executions.find((e) => e.id === executionId);
+      if (execution) {
+        execution.status = ExecutionStatus.CANCELLED;
+        return;
+      }
+    }
+  }
+
+  function pauseExecution(executionId: string) {
+    for (const executions of executionsByWorkflow.value.values()) {
+      const execution = executions.find((e) => e.id === executionId);
+      if (execution && execution.status === ExecutionStatus.RUNNING) {
+        execution.status = ExecutionStatus.PAUSED;
+        return;
+      }
+    }
+  }
+
+  function resumeExecution(executionId: string) {
+    for (const executions of executionsByWorkflow.value.values()) {
+      const execution = executions.find((e) => e.id === executionId);
+      if (execution && execution.status === ExecutionStatus.PAUSED) {
+        execution.status = ExecutionStatus.RUNNING;
+        return;
+      }
     }
   }
 
@@ -148,17 +203,21 @@ export const useExecutionStore = defineStore('execution', () => {
 
   return {
     // State
-    executions,
+    executionsByWorkflow,
     currentExecutionId,
 
     // Getters
     currentExecution,
     currentNode,
+    getWorkflowExecutions,
+    getAllExecutions,
 
     // Actions
     startExecution,
     completeStep,
     cancelExecution,
+    pauseExecution,
+    resumeExecution,
     setCurrentExecution,
   };
 });

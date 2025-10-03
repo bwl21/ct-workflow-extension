@@ -85,7 +85,7 @@ function formatDate(date: Date): string {
           <h4>{{ workflow.name }}</h4>
           <p>{{ workflow.description }}</p>
           <div class="workflow-meta">
-            <span>{{ workflow.nodes.length }} Schritte</span>
+            <span>{{ workflow.definition.nodes.length }} Schritte</span>
             <span>Erstellt: {{ formatDate(workflow.createdAt) }}</span>
           </div>
         </div>

@@ -46,7 +46,7 @@ function createNewWorkflow() {
 function addNode(type: NodeType) {
   if (!currentWorkflow.value) return;
 
-  const lastNode = currentWorkflow.value.nodes[currentWorkflow.value.nodes.length - 1];
+  const lastNode = currentWorkflow.value.definition.nodes[currentWorkflow.value.definition.nodes.length - 1];
   const x = lastNode ? lastNode.position.x + 200 : 100;
   const y = lastNode ? lastNode.position.y : 200;
 
@@ -187,9 +187,9 @@ function generateId(): string {
 
       <!-- Node List -->
       <div class="editor-nodes">
-        <h4>Knoten ({{ currentWorkflow.nodes.length }})</h4>
+        <h4>Knoten ({{ currentWorkflow.definition.nodes.length }})</h4>
         <div class="node-list">
-          <div v-for="node in currentWorkflow.nodes" :key="node.id" class="node-item">
+          <div v-for="node in currentWorkflow.definition.nodes" :key="node.id" class="node-item">
             <span class="node-type">{{ node.type }}</span>
             <span class="node-name">{{ node.label }}</span>
             <div class="node-actions">

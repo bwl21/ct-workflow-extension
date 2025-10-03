@@ -83,7 +83,7 @@ function formatDate(date: Date): string {
             </p>
             <div class="workflow-meta">
               <span class="ct-badge ct-badge-primary">
-                {{ workflow.nodes.length }} Schritte
+                {{ workflow.definition.nodes.length }} Schritte
               </span>
               <span class="ct-text-muted">
                 <small>Erstellt: {{ formatDate(workflow.createdAt) }}</small>

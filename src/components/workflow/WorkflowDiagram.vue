@@ -44,15 +44,15 @@ const getNodeIcon = (type: NodeType) => {
 
 // Calculate SVG viewBox based on node positions
 const viewBox = computed(() => {
-  if (props.workflow.nodes.length === 0) {
+  if (props.workflow.definition.nodes.length === 0) {
     return '0 0 800 600';
   }
 
   const padding = 100;
-  const minX = Math.min(...props.workflow.nodes.map((n) => n.position.x)) - padding;
-  const minY = Math.min(...props.workflow.nodes.map((n) => n.position.y)) - padding;
-  const maxX = Math.max(...props.workflow.nodes.map((n) => n.position.x)) + padding;
-  const maxY = Math.max(...props.workflow.nodes.map((n) => n.position.y)) + padding;
+  const minX = Math.min(...props.workflow.definition.nodes.map((n: any) => n.position.x)) - padding;
+  const minY = Math.min(...props.workflow.definition.nodes.map((n: any) => n.position.y)) - padding;
+  const maxX = Math.max(...props.workflow.definition.nodes.map((n: any) => n.position.x)) + padding;
+  const maxY = Math.max(...props.workflow.definition.nodes.map((n: any) => n.position.y)) + padding;
 
   return `${minX} ${minY} ${maxX - minX} ${maxY - minY}`;
 });
@@ -63,12 +63,12 @@ const viewBox = computed(() => {
     <svg :viewBox="viewBox" xmlns="http://www.w3.org/2000/svg">
       <!-- Edges -->
       <g class="edges">
-        <g v-for="edge in workflow.edges" :key="edge.id" class="edge">
+        <g v-for="edge in workflow.definition.edges" :key="edge.id" class="edge">
           <line
-            :x1="workflow.nodes.find((n) => n.id === edge.source)?.position.x"
-            :y1="workflow.nodes.find((n) => n.id === edge.source)?.position.y"
-            :x2="workflow.nodes.find((n) => n.id === edge.target)?.position.x"
-            :y2="workflow.nodes.find((n) => n.id === edge.target)?.position.y"
+            :x1="workflow.definition.nodes.find((n: any) => n.id === edge.source)?.position.x"
+            :y1="workflow.definition.nodes.find((n: any) => n.id === edge.source)?.position.y"
+            :x2="workflow.definition.nodes.find((n: any) => n.id === edge.target)?.position.x"
+            :y2="workflow.definition.nodes.find((n: any) => n.id === edge.target)?.position.y"
             stroke="#999"
             stroke-width="2"
             marker-end="url(#arrowhead)"
@@ -76,13 +76,13 @@ const viewBox = computed(() => {
           <text
             v-if="edge.label"
             :x="
-              ((workflow.nodes.find((n) => n.id === edge.source)?.position.x || 0) +
-                (workflow.nodes.find((n) => n.id === edge.target)?.position.x || 0)) /
+              ((workflow.definition.nodes.find((n: any) => n.id === edge.source)?.position.x || 0) +
+                (workflow.definition.nodes.find((n: any) => n.id === edge.target)?.position.x || 0)) /
               2
             "
             :y="
-              ((workflow.nodes.find((n) => n.id === edge.source)?.position.y || 0) +
-                (workflow.nodes.find((n) => n.id === edge.target)?.position.y || 0)) /
+              ((workflow.definition.nodes.find((n: any) => n.id === edge.source)?.position.y || 0) +
+                (workflow.definition.nodes.find((n: any) => n.id === edge.target)?.position.y || 0)) /
               2
             "
             class="edge-label"
@@ -96,7 +96,7 @@ const viewBox = computed(() => {
       <!-- Nodes -->
       <g class="nodes">
         <g
-          v-for="node in workflow.nodes"
+          v-for="node in workflow.definition.nodes"
           :key="node.id"
           :class="getNodeClass(node)"
           :transform="`translate(${node.position.x}, ${node.position.y})`"

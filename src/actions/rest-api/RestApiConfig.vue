@@ -31,6 +31,10 @@ const availableVariables = computed(() => {
   return Object.keys(props.context.workflowContext);
 });
 
+const formatVariable = (v: string) => {
+  return `{{${v}}}`;
+};
+
 const addHeader = () => {
   const newKey = `header${Object.keys(localConfig.value.headers).length + 1}`;
   localConfig.value.headers = {
@@ -86,7 +90,7 @@ const showBody = computed(() => {
         @blur="updateConfig"
       />
       <small class="ct-form-text">
-        Verfügbare Variablen: <code v-for="v in availableVariables" :key="v">{{ `{{${v}}}` }}</code>
+        Verfügbare Variablen: <code v-for="v in availableVariables" :key="v">{{ formatVariable(v) }}</code>
       </small>
     </div>
 
@@ -125,7 +129,7 @@ const showBody = computed(() => {
         placeholder='{ "key": "value" }'
         @blur="updateConfig"
       />
-      <small class="ct-form-text"> Verwende Variablen mit <code>{{ '{{variableName}}' }}</code> </small>
+      <small class="ct-form-text"> Verwende Variablen mit <code>{{ formatVariable('variableName') }}</code> </small>
     </div>
 
     <div class="ct-form-group">

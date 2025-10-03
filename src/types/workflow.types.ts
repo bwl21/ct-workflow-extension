@@ -6,10 +6,20 @@ export interface Workflow {
   id: string;
   name: string;
   description: string;
-  nodes: WorkflowNode[];
-  edges: WorkflowEdge[];
+  category: string;
+  definition: WorkflowDefinition;
   createdAt: Date;
   updatedAt: Date;
+  createdBy?: string;
+}
+
+export interface WorkflowDefinition {
+  version: string;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  metadata: {
+    description: string;
+  };
 }
 
 export interface WorkflowNode {
@@ -120,6 +130,7 @@ export interface StepHistory {
 export enum ExecutionStatus {
   CREATED = 'created',
   RUNNING = 'running',
+  PAUSED = 'paused',
   COMPLETED = 'completed',
   FAILED = 'failed',
   CANCELLED = 'cancelled',

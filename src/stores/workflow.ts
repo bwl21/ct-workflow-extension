@@ -18,15 +18,23 @@ export const useWorkflowStore = defineStore('workflow', () => {
   };
 
   // Actions
-  function createWorkflow(name: string, description: string): Workflow {
+  function createWorkflow(name: string, description: string, category: string = 'Allgemein'): Workflow {
     const workflow: Workflow = {
       id: generateId(),
       name,
       description,
-      nodes: [],
-      edges: [],
+      category,
+      definition: {
+        version: '1.0.0',
+        nodes: [],
+        edges: [],
+        metadata: {
+          description,
+        },
+      },
       createdAt: new Date(),
       updatedAt: new Date(),
+      createdBy: 'demo-user', // TODO: Get from user store
     };
 
     workflows.value.push(workflow);
@@ -36,6 +44,15 @@ export const useWorkflowStore = defineStore('workflow', () => {
     saveToLocalStorage();
 
     return workflow;
+  }
+
+  function addWorkflow(workflow: Workflow) {
+    workflows.value.push(workflow);
+    saveToLocalStorage();
+  }
+
+  function getAllWorkflows(): Workflow[] {
+    return workflows.value;
   }
 
   function updateWorkflow(id: string, updates: Partial<Workflow>) {
@@ -65,7 +82,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
   function addNode(workflowId: string, node: WorkflowNode) {
     const workflow = getWorkflowById(workflowId);
     if (workflow) {
-      workflow.nodes.push(node);
+      workflow.definition.nodes.push(node);
       workflow.updatedAt = new Date();
       saveToLocalStorage();
     }
@@ -74,7 +91,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
   function updateNode(workflowId: string, nodeId: string, updates: Partial<WorkflowNode>) {
     const workflow = getWorkflowById(workflowId);
     if (workflow) {
-      const node = workflow.nodes.find((n) => n.id === nodeId);
+      const node = workflow.definition.nodes.find((n) => n.id === nodeId);
       if (node) {
         Object.assign(node, updates);
         workflow.updatedAt = new Date();
@@ -87,13 +104,13 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const workflow = getWorkflowById(workflowId);
     if (workflow) {
       // Remove node
-      const nodeIndex = workflow.nodes.findIndex((n) => n.id === nodeId);
+      const nodeIndex = workflow.definition.nodes.findIndex((n) => n.id === nodeId);
       if (nodeIndex > -1) {
-        workflow.nodes.splice(nodeIndex, 1);
+        workflow.definition.nodes.splice(nodeIndex, 1);
       }
 
       // Remove connected edges
-      workflow.edges = workflow.edges.filter(
+      workflow.definition.edges = workflow.definition.edges.filter(
         (e) => e.source !== nodeId && e.target !== nodeId
       );
 
@@ -105,7 +122,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
   function addEdge(workflowId: string, edge: WorkflowEdge) {
     const workflow = getWorkflowById(workflowId);
     if (workflow) {
-      workflow.edges.push(edge);
+      workflow.definition.edges.push(edge);
       workflow.updatedAt = new Date();
       saveToLocalStorage();
     }
@@ -114,9 +131,9 @@ export const useWorkflowStore = defineStore('workflow', () => {
   function removeEdge(workflowId: string, edgeId: string) {
     const workflow = getWorkflowById(workflowId);
     if (workflow) {
-      const index = workflow.edges.findIndex((e) => e.id === edgeId);
+      const index = workflow.definition.edges.findIndex((e) => e.id === edgeId);
       if (index > -1) {
-        workflow.edges.splice(index, 1);
+        workflow.definition.edges.splice(index, 1);
         workflow.updatedAt = new Date();
         saveToLocalStorage();
       }
@@ -137,16 +154,47 @@ export const useWorkflowStore = defineStore('workflow', () => {
       const stored = localStorage.getItem('workflows');
       if (stored) {
         const parsed = JSON.parse(stored);
-        // Convert date strings back to Date objects
-        workflows.value = parsed.map((w: any) => ({
-          ...w,
-          createdAt: new Date(w.createdAt),
-          updatedAt: new Date(w.updatedAt),
-        }));
+        // Convert date strings back to Date objects and migrate old structure
+        workflows.value = parsed.map((w: any) => {
+          // Migrate old structure to new V2 structure
+          if (!w.definition && (w.nodes || w.edges)) {
+            console.info('Migrating workflow to V2 structure:', w.name);
+            return {
+              ...w,
+              category: w.category || 'Allgemein',
+              definition: {
+                version: '1.0.0',
+                nodes: w.nodes || [],
+                edges: w.edges || [],
+                metadata: {
+                  description: w.description || '',
+                },
+              },
+              createdAt: new Date(w.createdAt),
+              updatedAt: new Date(w.updatedAt),
+            };
+          }
+          // Already V2 structure
+          return {
+            ...w,
+            category: w.category || 'Allgemein',
+            createdAt: new Date(w.createdAt),
+            updatedAt: new Date(w.updatedAt),
+          };
+        });
+        // Save migrated workflows
+        saveToLocalStorage();
       }
     } catch (error) {
       console.error('Failed to load workflows from localStorage:', error);
+      // Clear corrupted data
+      localStorage.removeItem('workflows');
     }
+  }
+
+  function clearAllWorkflows() {
+    workflows.value = [];
+    localStorage.removeItem('workflows');
   }
 
   // Initialize
@@ -160,9 +208,11 @@ export const useWorkflowStore = defineStore('workflow', () => {
     // Getters
     currentWorkflow,
     getWorkflowById,
+    getAllWorkflows,
 
     // Actions
     createWorkflow,
+    addWorkflow,
     updateWorkflow,
     deleteWorkflow,
     setCurrentWorkflow,
@@ -172,6 +222,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     addEdge,
     removeEdge,
     loadFromLocalStorage,
+    clearAllWorkflows,
   };
 });
 
