@@ -29,6 +29,15 @@ const isCompleted = computed(() => {
 function startWorkflow(workflowId: string) {
   executionStore.startExecution(workflowId);
   formData.value = {};
+  
+  // Initialize multiselect fields as arrays
+  if (currentNode.value?.type === NodeType.TASK && currentNode.value.data.fields) {
+    currentNode.value.data.fields.forEach(field => {
+      if (field.type === 'multiselect') {
+        formData.value[field.name] = [];
+      }
+    });
+  }
 }
 
 function submitStep() {
@@ -53,6 +62,15 @@ function cancelWorkflow() {
   if (!currentExecution.value) return;
   if (confirm('Workflow wirklich abbrechen?')) {
     executionStore.cancelExecution(currentExecution.value.id);
+  }
+}
+
+function handleFileChange(event: Event, fieldName: string) {
+  const target = event.target as HTMLInputElement;
+  if (target.files) {
+    // Store file names for now (in production, you'd upload to server)
+    const fileNames = Array.from(target.files).map(f => f.name);
+    formData.value[fieldName] = target.multiple ? fileNames : fileNames[0];
   }
 }
 
@@ -128,8 +146,9 @@ function formatDate(date: Date): string {
                 <span v-if="field.required" class="required">*</span>
               </label>
 
+              <!-- Text inputs -->
               <input
-                v-if="field.type === 'text' || field.type === 'email'"
+                v-if="['text', 'email', 'tel', 'url', 'date', 'datetime-local', 'time', 'color'].includes(field.type)"
                 v-model="formData[field.name]"
                 :type="field.type"
                 class="ct-form-control"
@@ -137,6 +156,7 @@ function formatDate(date: Date): string {
                 :required="field.required"
               />
 
+              <!-- Textarea -->
               <textarea
                 v-else-if="field.type === 'textarea'"
                 v-model="formData[field.name]"
@@ -146,6 +166,7 @@ function formatDate(date: Date): string {
                 :required="field.required"
               />
 
+              <!-- Number -->
               <input
                 v-else-if="field.type === 'number'"
                 v-model.number="formData[field.name]"
@@ -155,10 +176,77 @@ function formatDate(date: Date): string {
                 :required="field.required"
               />
 
+              <!-- Range -->
+              <div v-else-if="field.type === 'range'" class="range-field">
+                <input
+                  v-model.number="formData[field.name]"
+                  type="range"
+                  class="ct-form-range"
+                  :min="field.min || 0"
+                  :max="field.max || 100"
+                  :step="field.step || 1"
+                  :required="field.required"
+                />
+                <span class="range-value">{{ formData[field.name] || field.min || 0 }}</span>
+              </div>
+
+              <!-- Select -->
+              <select
+                v-else-if="field.type === 'select'"
+                v-model="formData[field.name]"
+                class="ct-form-control"
+                :required="field.required"
+              >
+                <option value="">Bitte wählen...</option>
+                <option v-for="option in field.options" :key="option" :value="option">
+                  {{ option }}
+                </option>
+              </select>
+
+              <!-- Multiselect -->
+              <select
+                v-else-if="field.type === 'multiselect'"
+                v-model="formData[field.name]"
+                class="ct-form-control"
+                :required="field.required"
+                multiple
+                size="5"
+              >
+                <option v-for="option in field.options" :key="option" :value="option">
+                  {{ option }}
+                </option>
+              </select>
+
+              <!-- Radio -->
+              <div v-else-if="field.type === 'radio'" class="radio-group">
+                <label v-for="option in field.options" :key="option" class="radio-label">
+                  <input
+                    v-model="formData[field.name]"
+                    type="radio"
+                    :value="option"
+                    :name="field.name"
+                    :required="field.required"
+                  />
+                  {{ option }}
+                </label>
+              </div>
+
+              <!-- Checkbox -->
               <label v-else-if="field.type === 'checkbox'" class="checkbox-label">
                 <input v-model="formData[field.name]" type="checkbox" />
                 {{ field.placeholder || 'Ja' }}
               </label>
+
+              <!-- File -->
+              <input
+                v-else-if="field.type === 'file'"
+                @change="handleFileChange($event, field.name)"
+                type="file"
+                class="ct-form-control"
+                :accept="field.accept"
+                :multiple="field.multiple"
+                :required="field.required"
+              />
             </div>
 
             <div class="form-actions">
@@ -339,6 +427,60 @@ function formatDate(date: Date): string {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.range-field {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.ct-form-range {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: #e0e0e0;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.ct-form-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ct-primary, #007bff);
+  cursor: pointer;
+}
+
+.ct-form-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ct-primary, #007bff);
+  cursor: pointer;
+  border: none;
+}
+
+.range-value {
+  min-width: 40px;
+  text-align: center;
+  font-weight: 600;
+  color: var(--ct-primary, #007bff);
 }
 
 .form-actions {

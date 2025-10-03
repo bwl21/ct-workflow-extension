@@ -55,6 +55,15 @@ export interface FormField {
   required: boolean;
   placeholder?: string;
   defaultValue?: any;
+  // For SELECT, MULTISELECT, RADIO
+  options?: string[];
+  // For RANGE
+  min?: number;
+  max?: number;
+  step?: number;
+  // For FILE
+  accept?: string;
+  multiple?: boolean;
 }
 
 export interface Condition {
@@ -84,8 +93,18 @@ export enum FieldType {
   TEXTAREA = 'textarea',
   NUMBER = 'number',
   EMAIL = 'email',
+  TEL = 'tel',
+  URL = 'url',
+  DATE = 'date',
+  DATETIME = 'datetime-local',
+  TIME = 'time',
   SELECT = 'select',
+  MULTISELECT = 'multiselect',
+  RADIO = 'radio',
   CHECKBOX = 'checkbox',
+  RANGE = 'range',
+  COLOR = 'color',
+  FILE = 'file',
 }
 
 export enum ConditionOperator {
