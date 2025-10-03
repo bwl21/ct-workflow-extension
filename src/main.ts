@@ -4,6 +4,7 @@ import App from './App.vue';
 import { createPinia } from 'pinia';
 import { churchtoolsClient } from '@churchtools/churchtools-client';
 import { router } from './router';
+import { initializeActions } from './actions';
 
 declare const window: Window &
     typeof globalThis & {
@@ -20,6 +21,10 @@ const pinia = createPinia();
 
 app.use(pinia);
 app.use(router);
+
+// Initialize action plugins
+initializeActions();
+
 app.mount('#app');
 
 const username = import.meta.env.VITE_USERNAME;

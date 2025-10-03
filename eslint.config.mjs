@@ -13,9 +13,16 @@ export default typescriptEslint.config(
             ...typescriptEslint.configs.recommended,
             ...eslintPluginVue.configs['flat/recommended'],
         ],
+        files: ['**/*.vue'],
         languageOptions: {
+            parserOptions: {
+                parser: typescriptEslint.parser,
+                extraFileExtensions: ['.vue'],
+                sourceType: 'module',
+            },
             globals: {
                 ...globals.node,
+                ...globals.browser,
             },
         },
 

@@ -1,11 +1,13 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import Start from './components/Start.vue';
 import UIShowcase from './components/UIShowcase.vue';
+import DemoView from './views/DemoView.vue';
 
 const routes: RouteRecordRaw[] = [
     { path: '/start', name: 'start', component: Start },
     { path: '/ui', name: 'ui', component: UIShowcase },
-    { path: '', redirect: { name: 'start' } },
+    { path: '/demo', name: 'demo', component: DemoView },
+    { path: '', redirect: { name: 'demo' } },
 ];
 
 export const router = createRouter({
