@@ -1,0 +1,519 @@
+/* ChurchTools Design System Variables */
+:root {
+    /* ChurchTools Colors */
+    --ct-primary: #0e204b;
+    --ct-primary-light: #1a3a6b;
+    --ct-primary-dark: #0a1a3a;
+    --ct-secondary: #f8f9fa;
+    --ct-accent: #007bff;
+    --ct-success: #28a745;
+    --ct-warning: #ffc107;
+    --ct-danger: #dc3545;
+    --ct-info: #17a2b8;
+    
+    /* Text Colors */
+    --ct-text-primary: #212529;
+    --ct-text-secondary: #6c757d;
+    --ct-text-muted: #868e96;
+    --ct-text-white: #ffffff;
+    
+    /* Background Colors */
+    --ct-bg-primary: #ffffff;
+    --ct-bg-secondary: #f8f9fa;
+    --ct-bg-light: #e9ecef;
+    --ct-bg-dark: #343a40;
+    
+    /* Border Colors */
+    --ct-border-color: #dee2e6;
+    --ct-border-light: #e9ecef;
+    
+    /* Spacing */
+    --ct-spacing-xs: 0.25rem;
+    --ct-spacing-sm: 0.5rem;
+    --ct-spacing-md: 1rem;
+    --ct-spacing-lg: 1.5rem;
+    --ct-spacing-xl: 3rem;
+    
+    /* Typography */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+    color: var(--ct-text-primary);
+    background-color: var(--ct-bg-primary);
+    
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    width: 100%;
+    overscroll-behavior-y: none;
+    background-color: var(--ct-bg-secondary);
+}
+
+/* ChurchTools Base Classes */
+.cts {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--ct-text-primary);
+}
+
+/* ChurchTools Button Styles */
+.ct-btn {
+    display: inline-block;
+    font-weight: 400;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    user-select: none;
+    border: 1px solid transparent;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    border-radius: 0.25rem;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.ct-btn-primary {
+    color: var(--ct-text-white);
+    background-color: var(--ct-primary);
+    border-color: var(--ct-primary);
+}
+
+.ct-btn-primary:hover {
+    background-color: var(--ct-primary-light);
+    border-color: var(--ct-primary-light);
+}
+
+.ct-btn-secondary {
+    color: var(--ct-text-primary);
+    background-color: var(--ct-secondary);
+    border-color: var(--ct-border-color);
+}
+
+.ct-btn-secondary:hover {
+    background-color: var(--ct-bg-light);
+    border-color: var(--ct-border-color);
+}
+
+/* ChurchTools Card Styles */
+.ct-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    word-wrap: break-word;
+    background-color: var(--ct-bg-primary);
+    background-clip: border-box;
+    border: 1px solid var(--ct-border-color);
+    border-radius: 0.375rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.ct-card-header {
+    padding: var(--ct-spacing-md);
+    margin-bottom: 0;
+    background-color: var(--ct-bg-secondary);
+    border-bottom: 1px solid var(--ct-border-color);
+    border-top-left-radius: calc(0.375rem - 1px);
+    border-top-right-radius: calc(0.375rem - 1px);
+}
+
+.ct-card-body {
+    flex: 1 1 auto;
+    padding: var(--ct-spacing-md);
+}
+
+/* ChurchTools Typography */
+.ct-h1, .ct-h2, .ct-h3, .ct-h4, .ct-h5, .ct-h6 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--ct-text-primary);
+}
+
+.ct-h1 { font-size: 2.5rem; }
+.ct-h2 { font-size: 2rem; }
+.ct-h3 { font-size: 1.75rem; }
+.ct-h4 { font-size: 1.5rem; }
+.ct-h5 { font-size: 1.25rem; }
+.ct-h6 { font-size: 1rem; }
+
+/* ChurchTools Utilities */
+.ct-text-center { text-align: center; }
+.ct-text-left { text-align: left; }
+.ct-text-right { text-align: right; }
+
+.ct-mb-0 { margin-bottom: 0; }
+.ct-mb-1 { margin-bottom: var(--ct-spacing-xs); }
+.ct-mb-2 { margin-bottom: var(--ct-spacing-sm); }
+.ct-mb-3 { margin-bottom: var(--ct-spacing-md); }
+.ct-mb-4 { margin-bottom: var(--ct-spacing-lg); }
+
+.ct-p-0 { padding: 0; }
+.ct-p-1 { padding: var(--ct-spacing-xs); }
+.ct-p-2 { padding: var(--ct-spacing-sm); }
+.ct-p-3 { padding: var(--ct-spacing-md); }
+.ct-p-4 { padding: var(--ct-spacing-lg); }
+
+/* Flexbox utilities */
+.ct-d-flex { display: flex; }
+.ct-flex-column { flex-direction: column; }
+.ct-justify-content-center { justify-content: center; }
+.ct-align-items-center { align-items: center; }
+
+/* Container */
+.ct-container {
+    width: 100%;
+    padding-right: var(--ct-spacing-md);
+    padding-left: var(--ct-spacing-md);
+    margin-right: auto;
+    margin-left: auto;
+    max-width: 1200px;
+}
+
+/* ChurchTools Form Controls */
+.ct-form-control {
+    display: block;
+    width: 100%;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--ct-text-primary);
+    background-color: var(--ct-bg-primary);
+    background-clip: padding-box;
+    border: 1px solid var(--ct-border-color);
+    border-radius: 0.25rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.ct-form-control:focus {
+    color: var(--ct-text-primary);
+    background-color: var(--ct-bg-primary);
+    border-color: var(--ct-accent);
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.ct-form-control:disabled {
+    background-color: var(--ct-bg-light);
+    opacity: 1;
+}
+
+.ct-form-control::placeholder {
+    color: var(--ct-text-muted);
+    opacity: 1;
+}
+
+.ct-form-group {
+    margin-bottom: var(--ct-spacing-md);
+}
+
+.ct-form-label {
+    display: inline-block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--ct-text-primary);
+}
+
+.ct-form-text {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--ct-text-muted);
+}
+
+/* Form validation states */
+.ct-form-control.is-valid {
+    border-color: var(--ct-success);
+}
+
+.ct-form-control.is-invalid {
+    border-color: var(--ct-danger);
+}
+
+/* Checkbox and Radio */
+.ct-form-check {
+    position: relative;
+    display: block;
+    padding-left: 1.25rem;
+}
+
+.ct-form-check-input {
+    position: absolute;
+    margin-top: 0.3rem;
+    margin-left: -1.25rem;
+}
+
+.ct-form-check-label {
+    margin-bottom: 0;
+}
+
+/* Select */
+.ct-form-select {
+    display: block;
+    width: 100%;
+    padding: 0.375rem 2.25rem 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--ct-text-primary);
+    background-color: var(--ct-bg-primary);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px 12px;
+    border: 1px solid var(--ct-border-color);
+    border-radius: 0.25rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    appearance: none;
+}
+
+/* ChurchTools Alert Styles */
+.ct-alert {
+    position: relative;
+    padding: 0.75rem 1.25rem;
+    margin-bottom: 1rem;
+    border: 1px solid transparent;
+    border-radius: 0.25rem;
+    border-left: 4px solid transparent;
+    transition: opacity 0.15s linear;
+}
+
+.ct-alert-dismissible {
+    padding-right: 4rem;
+}
+
+.ct-alert-dismissible .ct-btn-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 2;
+    padding: 0.75rem 1.25rem;
+    color: inherit;
+}
+
+.ct-alert-info {
+    color: #0c5460;
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+    border-left-color: var(--ct-info);
+}
+
+.ct-alert-success {
+    color: #155724;
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    border-left-color: var(--ct-success);
+}
+
+.ct-alert-warning {
+    color: #856404;
+    background-color: #fff3cd;
+    border-color: #ffeaa7;
+    border-left-color: var(--ct-warning);
+}
+
+.ct-alert-danger {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    border-left-color: var(--ct-danger);
+}
+
+.ct-alert-primary {
+    color: #084298;
+    background-color: #cfe2ff;
+    border-color: #b6d4fe;
+    border-left-color: var(--ct-primary);
+}
+
+/* Alert animations */
+.ct-alert-fade-enter-active,
+.ct-alert-fade-leave-active {
+    transition: opacity 0.3s ease;
+}
+
+.ct-alert-fade-enter-from,
+.ct-alert-fade-leave-to {
+    opacity: 0;
+}
+
+/* Close button */
+.ct-btn-close {
+    box-sizing: content-box;
+    width: 1em;
+    height: 1em;
+    padding: 0.25em 0.25em;
+    color: #000;
+    background: transparent url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M.293.293a1 1 0 011.414 0L8 6.586 14.293.293a1 1 0 111.414 1.414L9.414 8l6.293 6.293a1 1 0 01-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 01-1.414-1.414L6.586 8 .293 1.707a1 1 0 010-1.414z'/%3e%3c/svg%3e") center/1em auto no-repeat;
+    border: 0;
+    border-radius: 0.25rem;
+    opacity: 0.5;
+    cursor: pointer;
+}
+
+.ct-btn-close:hover {
+    color: #000;
+    text-decoration: none;
+    opacity: 0.75;
+}
+
+/* ChurchTools Badge Styles */
+.ct-badge {
+    display: inline-block;
+    padding: 0.25em 0.4em;
+    font-size: 75%;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.25rem;
+}
+
+.ct-badge-primary {
+    color: var(--ct-text-white);
+    background-color: var(--ct-primary);
+}
+
+.ct-badge-secondary {
+    color: var(--ct-text-primary);
+    background-color: var(--ct-secondary);
+}
+
+/* ChurchTools Navigation */
+.ct-nav {
+    display: flex;
+    flex-wrap: wrap;
+    padding-left: 0;
+    margin-bottom: 0;
+    list-style: none;
+}
+
+.ct-nav-link {
+    display: block;
+    padding: 0.5rem 1rem;
+    color: var(--ct-accent);
+    text-decoration: none;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+    border-radius: 0.25rem;
+}
+
+.ct-nav-link:hover {
+    color: var(--ct-primary);
+    background-color: var(--ct-bg-light);
+    text-decoration: none;
+}
+
+.ct-nav-link.active {
+    color: var(--ct-primary);
+    background-color: var(--ct-bg-light);
+    font-weight: 500;
+}
+
+.ct-nav-link:focus {
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(14, 32, 75, 0.25);
+}
+
+/* Navigation Pills */
+.ct-nav-pills .ct-nav-link {
+    background: none;
+    border: 0;
+    border-radius: 0.25rem;
+}
+
+.ct-nav-pills .ct-nav-link.active {
+    color: var(--ct-text-white);
+    background-color: var(--ct-primary);
+}
+
+/* Navigation Tabs */
+.ct-nav-tabs {
+    border-bottom: 1px solid var(--ct-border-color);
+}
+
+.ct-nav-tabs .ct-nav-link {
+    margin-bottom: -1px;
+    background: none;
+    border: 1px solid transparent;
+    border-top-left-radius: 0.25rem;
+    border-top-right-radius: 0.25rem;
+}
+
+.ct-nav-tabs .ct-nav-link:hover {
+    border-color: var(--ct-border-light) var(--ct-border-light) var(--ct-border-color);
+    isolation: isolate;
+}
+
+.ct-nav-tabs .ct-nav-link.active {
+    color: var(--ct-text-primary);
+    background-color: var(--ct-bg-primary);
+    border-color: var(--ct-border-color) var(--ct-border-color) var(--ct-bg-primary);
+}
+
+/* Breadcrumb */
+.ct-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    list-style: none;
+    background-color: var(--ct-bg-light);
+    border-radius: 0.25rem;
+}
+
+.ct-breadcrumb-item {
+    display: flex;
+}
+
+.ct-breadcrumb-item + .ct-breadcrumb-item {
+    padding-left: 0.5rem;
+}
+
+.ct-breadcrumb-item + .ct-breadcrumb-item::before {
+    float: left;
+    padding-right: 0.5rem;
+    color: var(--ct-text-muted);
+    content: var(--ct-breadcrumb-divider, "/");
+}
+
+.ct-breadcrumb-item.active {
+    color: var(--ct-text-muted);
+}
+
+/* Responsive utilities */
+@media (max-width: 768px) {
+    .ct-container {
+        padding-right: var(--ct-spacing-sm);
+        padding-left: var(--ct-spacing-sm);
+    }
+    
+    .feature-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ChurchTools specific overrides */
+.cts .ct-card {
+    box-shadow: 0 0.125rem 0.25rem rgba(14, 32, 75, 0.075);
+}
+
+.cts .ct-btn-primary {
+    background-color: var(--ct-primary);
+    border-color: var(--ct-primary);
+}
+
+.cts .ct-btn-primary:hover,
+.cts .ct-btn-primary:focus {
+    background-color: var(--ct-primary-light);
+    border-color: var(--ct-primary-light);
+    box-shadow: 0 0 0 0.2rem rgba(14, 32, 75, 0.25);
+}
