@@ -307,12 +307,21 @@ function formatDate(date: Date): string {
 
 .editor-modal-body {
   padding: 0;
-  height: 70vh;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .editor-modal-body :deep(.workflow-editor) {
-  height: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.editor-modal-body :deep(.editor-content) {
+  flex: 1;
+  min-height: 0;
 }
 
 @media (max-width: 768px) {

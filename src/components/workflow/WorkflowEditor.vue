@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useWorkflowStore } from '@/stores/workflow';
-import WorkflowDiagram from './WorkflowDiagram.vue';
+import VueFlowDiagram from './VueFlowDiagram.vue';
 import SimpleRulesEditor from './SimpleRulesEditor.vue';
 import EdgeEditor from './EdgeEditor.vue';
 import type { WorkflowNode, WorkflowEdge } from '@/types/workflow.types';
 import { NodeType, FieldType } from '@/types/workflow.types';
+import { calculateAutoLayout } from '@/utils/auto-layout';
 
 const workflowStore = useWorkflowStore();
 
@@ -18,6 +19,9 @@ const showEdgeEditor = ref(false);
 const selectedEdgeId = ref<string | null>(null);
 const showJsonModal = ref(false);
 const workflowJson = ref('');
+const showEdgeList = ref(false);
+const highlightedEdgeId = ref<string | null>(null);
+const edgeRefs = ref<Record<string, any>>({});
 
 const currentWorkflow = computed(() => workflowStore.currentWorkflow);
 
@@ -73,7 +77,24 @@ function addNode(type: NodeType) {
     data: type === NodeType.TASK 
       ? { fields: [] } 
       : type === NodeType.DECISION
-      ? { engine: 'simple', simpleRules: { conditions: [], logic: 'AND' } }
+      ? { 
+          outputs: [
+            {
+              id: 'true',
+              label: '✓ JA',
+              condition: {
+                engine: 'simple',
+                rule: { conditions: [], logic: 'AND' }
+              },
+              isDefault: false
+            },
+            {
+              id: 'false',
+              label: '✗ NEIN',
+              isDefault: true
+            }
+          ]
+        }
       : {},
   };
 
@@ -233,6 +254,26 @@ function getNodeLabel(nodeId: string): string {
 }
 
 function editEdge(edgeId: string) {
+  // Öffne Edge-Liste falls geschlossen
+  showEdgeList.value = true;
+  
+  // Highlight Edge
+  highlightedEdgeId.value = edgeId;
+  
+  // Scroll zur Edge in der Liste
+  setTimeout(() => {
+    const edgeElement = edgeRefs.value[edgeId];
+    if (edgeElement) {
+      edgeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, 100);
+  
+  // Entferne Highlight nach 2 Sekunden
+  setTimeout(() => {
+    highlightedEdgeId.value = null;
+  }, 2000);
+  
+  // Öffne Editor
   selectedEdgeId.value = edgeId;
   showEdgeEditor.value = true;
 }
@@ -263,36 +304,130 @@ const selectedEdge = computed(() => {
   return currentWorkflow.value.definition.edges.find(e => e.id === selectedEdgeId.value) || null;
 });
 
-function getAvailableFieldsForEdge(edge: WorkflowEdge) {
-  if (!currentWorkflow.value) return [];
-  
-  const fields: Array<{ name: string; label: string; type: string }> = [];
-  
-  // Find the source node
-  const sourceNode = currentWorkflow.value.definition.nodes.find(n => n.id === edge.source);
-  if (!sourceNode) return [];
-  
-  // Collect all fields from TASK nodes before the source node
-  for (const node of currentWorkflow.value.definition.nodes) {
-    if (node.type === NodeType.TASK && node.data.fields) {
-      for (const field of node.data.fields) {
-        fields.push({
-          name: field.name,
-          label: `${node.label}: ${field.label}`,
-          type: field.type,
-        });
-      }
-    }
-    
-    // Stop at source node
-    if (node.id === sourceNode.id) break;
-  }
-  
-  return fields;
-}
+
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// Decision Node Output Management
+function initializeDefaultOutputs() {
+  if (!selectedNode.value) return;
+  
+  selectedNode.value.data.outputs = [
+    {
+      id: 'true',
+      label: '✓ JA',
+      condition: {
+        engine: 'simple',
+        rule: { conditions: [], logic: 'AND' }
+      },
+      isDefault: false
+    },
+    {
+      id: 'false',
+      label: '✗ NEIN',
+      isDefault: true
+    }
+  ];
+}
+
+function addOutput() {
+  if (!selectedNode.value) return;
+  
+  if (!selectedNode.value.data.outputs) {
+    selectedNode.value.data.outputs = [];
+  }
+  
+  const newOutput = {
+    id: `output-${generateId()}`,
+    label: `Ausgang ${selectedNode.value.data.outputs.length + 1}`,
+    condition: {
+      engine: 'simple' as const,
+      rule: { conditions: [], logic: 'AND' as const }
+    },
+    isDefault: false
+  };
+  
+  selectedNode.value.data.outputs.push(newOutput);
+}
+
+function removeOutput(index: number) {
+  if (!selectedNode.value || !selectedNode.value.data.outputs) return;
+  if (selectedNode.value.data.outputs.length <= 1) {
+    alert('Mindestens ein Ausgang muss vorhanden sein!');
+    return;
+  }
+  
+  selectedNode.value.data.outputs.splice(index, 1);
+}
+
+function handleNodeClick(nodeId: string) {
+  if (!currentWorkflow.value) return;
+  const node = currentWorkflow.value.definition.nodes.find(n => n.id === nodeId);
+  if (node) {
+    editNode(node);
+  }
+}
+
+function handleNodesChange(updatedNodes: WorkflowNode[]) {
+  if (!currentWorkflow.value) return;
+  currentWorkflow.value.definition.nodes = updatedNodes;
+  workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
+}
+
+function handleEdgeAdd(connection: { source: string; target: string; sourceHandle?: string }) {
+  if (!currentWorkflow.value) return;
+  
+  const newEdge: WorkflowEdge = {
+    id: generateId(),
+    source: connection.source,
+    target: connection.target,
+    sourceHandle: connection.sourceHandle,
+  };
+  
+  workflowStore.addEdge(currentWorkflow.value.id, newEdge);
+}
+
+function handleEdgeDelete(edgeId: string) {
+  if (!currentWorkflow.value) return;
+  workflowStore.removeEdge(currentWorkflow.value.id, edgeId);
+}
+
+function handleEdgeUpdate(update: { id: string; source: string; target: string; sourceHandle?: string }) {
+  if (!currentWorkflow.value) return;
+  
+  const edgeIndex = currentWorkflow.value.definition.edges.findIndex(e => e.id === update.id);
+  if (edgeIndex !== -1) {
+    currentWorkflow.value.definition.edges[edgeIndex] = {
+      ...currentWorkflow.value.definition.edges[edgeIndex],
+      source: update.source,
+      target: update.target,
+      sourceHandle: update.sourceHandle,
+    };
+    workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
+  }
+}
+
+function applyAutoLayout() {
+  if (!currentWorkflow.value) return;
+  
+  const layoutedNodes = calculateAutoLayout(
+    currentWorkflow.value.definition.nodes,
+    currentWorkflow.value.definition.edges,
+    {
+      direction: 'TB', // Top to Bottom
+      nodeWidth: 180,
+      nodeHeight: 100,
+      rankSep: 150, // Mehr vertikaler Abstand
+      nodeSep: 150, // Mehr horizontaler Abstand für bessere Verteilung
+      align: 'UL', // Upper Left alignment
+      ranker: 'network-simplex', // Besserer Algorithmus für komplexe Graphen
+    }
+  );
+  
+  currentWorkflow.value.definition.nodes = layoutedNodes;
+  workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
 }
 </script>
 
@@ -309,9 +444,14 @@ function generateId(): string {
           <h3>{{ currentWorkflow.name }}</h3>
           <p>{{ currentWorkflow.description }}</p>
         </div>
-        <button class="ct-btn ct-btn-secondary" @click="showWorkflowJson" title="Workflow als JSON anzeigen">
-          📋 JSON anzeigen
-        </button>
+        <div class="header-actions">
+          <button class="ct-btn ct-btn-secondary" @click="applyAutoLayout" title="Automatisches Layout anwenden">
+            🔄 Auto-Layout
+          </button>
+          <button class="ct-btn ct-btn-secondary" @click="showWorkflowJson" title="Workflow als JSON anzeigen">
+            📋 JSON anzeigen
+          </button>
+        </div>
       </div>
     </div>
 
@@ -355,7 +495,16 @@ function generateId(): string {
 
       <!-- Diagram -->
       <div class="editor-diagram">
-        <WorkflowDiagram :workflow="currentWorkflow" />
+        <VueFlowDiagram 
+          :definition="currentWorkflow.definition" 
+          :readonly="false"
+          @node-click="handleNodeClick"
+          @edge-click="editEdge"
+          @nodes-change="handleNodesChange"
+          @edge-add="handleEdgeAdd"
+          @edge-delete="handleEdgeDelete"
+          @edge-update="handleEdgeUpdate"
+        />
       </div>
 
       <!-- Node & Edge List -->
@@ -377,25 +526,37 @@ function generateId(): string {
           </div>
         </div>
 
-        <h4 style="margin-top: 1.5rem;">Verbindungen ({{ currentWorkflow.definition.edges.length }})</h4>
-        <div class="edge-list">
-          <div v-for="edge in currentWorkflow.definition.edges" :key="edge.id" class="edge-item">
-            <div class="edge-info">
-              <span class="edge-label">
-                {{ getNodeLabel(edge.source) }} → {{ getNodeLabel(edge.target) }}
-              </span>
-              <span v-if="edge.isDefault" class="badge-default">Default</span>
-              <span v-if="edge.condition" class="badge-condition">
-                {{ edge.condition.engine }}
-              </span>
-            </div>
-            <div class="edge-actions">
-              <button class="ct-btn ct-btn-sm" @click="editEdge(edge.id)" title="Bedingung bearbeiten">
-                ⚙️
-              </button>
-              <button class="ct-btn ct-btn-sm" @click="deleteEdge(edge.id)" title="Löschen">
-                🗑️
-              </button>
+        <div class="edge-section">
+          <h4 @click="showEdgeList = !showEdgeList" class="collapsible-header">
+            <span>{{ showEdgeList ? '▼' : '▶' }} Verbindungen ({{ currentWorkflow.definition.edges.length }})</span>
+          </h4>
+          <div v-if="showEdgeList" class="edge-list">
+            <div 
+              v-for="edge in currentWorkflow.definition.edges" 
+              :key="edge.id" 
+              :ref="el => { if (el) edgeRefs[edge.id] = el }"
+              class="edge-item"
+              :class="{ 'edge-highlighted': highlightedEdgeId === edge.id }"
+            >
+              <div class="edge-info">
+                <span class="edge-label">
+                  {{ getNodeLabel(edge.source) }} → {{ getNodeLabel(edge.target) }}
+                </span>
+                <span v-if="edge.sourceHandle" class="badge-handle">
+                  {{ edge.sourceHandle }}
+                </span>
+                <span v-if="edge.label" class="badge-label">
+                  {{ edge.label }}
+                </span>
+              </div>
+              <div class="edge-actions">
+                <button class="ct-btn ct-btn-sm" @click="editEdge(edge.id)" title="Bearbeiten">
+                  ⚙️
+                </button>
+                <button class="ct-btn ct-btn-sm" @click="deleteEdge(edge.id)" title="Löschen">
+                  🗑️
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -547,33 +708,72 @@ function generateId(): string {
 
         <!-- Decision Node -->
         <div v-if="selectedNode.type === NodeType.DECISION" class="decision-config">
-          <h4>Entscheidungslogik</h4>
+          <h4>Ausgänge</h4>
+          <p class="info-text">
+            Definiere die möglichen Ausgänge dieses Entscheidungsknotens. Jeder Ausgang kann eine Bedingung haben.
+          </p>
           
-          <div class="ct-form-group">
-            <label class="ct-form-label">Rule Engine</label>
-            <select v-model="selectedNode.data.engine" class="ct-form-control">
-              <option value="simple">Einfache Regeln</option>
-              <option value="jsonlogic" disabled>JSONLogic (coming soon)</option>
-              <option value="custom" disabled>Custom Expression (coming soon)</option>
-            </select>
-            <small class="ct-form-text">
-              Wähle die Engine für die Auswertung der Bedingungen
-            </small>
+          <div v-if="!selectedNode.data.outputs || selectedNode.data.outputs.length === 0" class="empty-outputs">
+            <p>Noch keine Ausgänge definiert. Standard: JA/NEIN</p>
+            <button class="ct-btn ct-btn-secondary ct-btn-sm" @click="initializeDefaultOutputs">
+              Standard-Ausgänge erstellen
+            </button>
           </div>
-
-          <SimpleRulesEditor
-            v-if="selectedNode.data.engine === 'simple' && selectedNode.data.simpleRules"
-            v-model="selectedNode.data.simpleRules"
-            :available-fields="getAvailableFields()"
-          />
-
-          <div v-if="selectedNode.data.engine === 'jsonlogic'" class="coming-soon">
-            <p>JSONLogic Editor wird in Kürze verfügbar sein.</p>
+          
+          <div v-else class="outputs-list">
+            <div 
+              v-for="(output, index) in selectedNode.data.outputs" 
+              :key="output.id"
+              class="output-item"
+            >
+              <div class="output-header">
+                <span class="output-number">{{ index + 1 }}</span>
+                <input 
+                  v-model="output.label" 
+                  type="text" 
+                  class="ct-form-control" 
+                  placeholder="Label (z.B. 'Genehmigt')"
+                />
+                <label class="checkbox-label">
+                  <input v-model="output.isDefault" type="checkbox" />
+                  Default
+                </label>
+                <button 
+                  class="ct-btn ct-btn-sm" 
+                  @click="removeOutput(index)"
+                  :disabled="selectedNode.data.outputs.length <= 1"
+                  title="Löschen"
+                >
+                  🗑️
+                </button>
+              </div>
+              
+              <div v-if="!output.isDefault && output.condition" class="output-condition">
+                <label class="ct-form-label">Bedingung</label>
+                <div class="ct-form-group">
+                  <select v-model="output.condition.engine" class="ct-form-control">
+                    <option value="simple">Einfache Regeln</option>
+                    <option value="jsonlogic" disabled>JSONLogic (coming soon)</option>
+                    <option value="custom" disabled>Custom Expression (coming soon)</option>
+                  </select>
+                </div>
+                
+                <SimpleRulesEditor
+                  v-if="output.condition.engine === 'simple'"
+                  v-model="output.condition.rule"
+                  :available-fields="getAvailableFields()"
+                />
+              </div>
+              
+              <div v-else class="default-info">
+                ℹ️ Dieser Ausgang wird verwendet, wenn keine andere Bedingung zutrifft
+              </div>
+            </div>
           </div>
-
-          <div v-if="selectedNode.data.engine === 'custom'" class="coming-soon">
-            <p>Custom Expression Editor wird in Kürze verfügbar sein.</p>
-          </div>
+          
+          <button class="ct-btn ct-btn-secondary ct-btn-sm" @click="addOutput">
+            + Ausgang hinzufügen
+          </button>
         </div>
 
         <div class="modal-actions">
@@ -588,9 +788,9 @@ function generateId(): string {
       <div class="modal-content modal-large">
         <EdgeEditor
           :edge="selectedEdge"
-          :available-fields="getAvailableFieldsForEdge(selectedEdge)"
           @save="saveEdge"
           @cancel="showEdgeEditor = false; selectedEdgeId = null"
+          @delete="deleteEdge(selectedEdge.id); showEdgeEditor = false; selectedEdgeId = null"
         />
       </div>
     </div>
@@ -651,6 +851,11 @@ function generateId(): string {
   margin: 0.25rem 0 0;
   color: #666;
   font-size: 0.9rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .editor-content {
@@ -1011,5 +1216,152 @@ function generateId(): string {
 .edge-actions {
   display: flex;
   gap: 0.25rem;
+}
+
+.edge-section {
+  margin-top: 1.5rem;
+}
+
+.collapsible-header {
+  cursor: pointer;
+  user-select: none;
+  padding: 0.5rem;
+  background: #f8f9fa;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.collapsible-header:hover {
+  background: #e9ecef;
+}
+
+.collapsible-header span {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.edge-highlighted {
+  animation: highlight-pulse 1s ease-in-out 2;
+  background: #fff3cd !important;
+  border-color: #ffc107 !important;
+}
+
+@keyframes highlight-pulse {
+  0%, 100% {
+    background: #fff3cd;
+  }
+  50% {
+    background: #ffe69c;
+  }
+}
+
+/* Decision Node Outputs */
+.decision-config {
+  margin-top: 1.5rem;
+}
+
+.decision-config .info-text {
+  background: #e3f2fd;
+  padding: 0.75rem;
+  border-radius: 4px;
+  border-left: 4px solid #2196f3;
+  margin-bottom: 1rem;
+  color: #1565c0;
+  font-size: 0.875rem;
+}
+
+.empty-outputs {
+  text-align: center;
+  padding: 2rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 2px dashed #dee2e6;
+  margin-bottom: 1rem;
+}
+
+.empty-outputs p {
+  margin: 0 0 1rem 0;
+  color: #6c757d;
+}
+
+.outputs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.output-item {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.output-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.output-number {
+  background: #6c757d;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.output-header .ct-form-control {
+  flex: 1;
+}
+
+.output-condition {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: white;
+  border-radius: 4px;
+}
+
+.output-condition .ct-form-label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.default-info {
+  padding: 0.75rem;
+  background: #fff3cd;
+  border-left: 4px solid #ffc107;
+  border-radius: 4px;
+  color: #856404;
+  font-size: 0.875rem;
+  margin-top: 0.75rem;
+}
+
+.badge-handle,
+.badge-label {
+  padding: 0.125rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-handle {
+  background: #6c757d;
+  color: white;
+}
+
+.badge-label {
+  background: #e9ecef;
+  color: #495057;
 }
 </style>

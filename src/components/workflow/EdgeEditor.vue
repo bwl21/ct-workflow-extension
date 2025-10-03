@@ -1,37 +1,18 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import SimpleRulesEditor from './SimpleRulesEditor.vue';
-import type { WorkflowEdge, SimpleRules } from '@/types/workflow.types';
+import { ref } from 'vue';
+import type { WorkflowEdge } from '@/types/workflow.types';
 
 const props = defineProps<{
   edge: WorkflowEdge;
-  availableFields: Array<{ name: string; label: string; type: string }>;
 }>();
 
 const emit = defineEmits<{
   save: [edge: WorkflowEdge];
   cancel: [];
+  delete: [];
 }>();
 
 const localEdge = ref<WorkflowEdge>({ ...props.edge });
-
-// Initialize condition if not exists
-if (!localEdge.value.condition) {
-  localEdge.value.condition = {
-    engine: 'simple',
-    rule: { conditions: [], logic: 'AND' } as SimpleRules,
-  };
-}
-
-// Watch for engine changes
-watch(() => localEdge.value.condition?.engine, (newEngine) => {
-  if (newEngine === 'simple' && !localEdge.value.condition?.rule) {
-    localEdge.value.condition = {
-      engine: 'simple',
-      rule: { conditions: [], logic: 'AND' } as SimpleRules,
-    };
-  }
-});
 
 function save() {
   emit('save', localEdge.value);
@@ -40,11 +21,21 @@ function save() {
 function cancel() {
   emit('cancel');
 }
+
+function deleteEdge() {
+  if (confirm('Verbindung wirklich löschen?')) {
+    emit('delete');
+  }
+}
 </script>
 
 <template>
   <div class="edge-editor">
     <h3>Verbindung bearbeiten</h3>
+    
+    <p class="info-text">
+      ℹ️ Bedingungen werden jetzt am Decision-Node konfiguriert, nicht an den Verbindungen.
+    </p>
 
     <div class="ct-form-group">
       <label class="ct-form-label">Label (optional)</label>
@@ -55,45 +46,18 @@ function cancel() {
         placeholder="z.B. 'Ja', 'Nein', 'Erwachsen'"
       />
     </div>
-
-    <div class="ct-form-group">
-      <label class="checkbox-label">
-        <input type="checkbox" v-model="localEdge.isDefault" />
-        Als Default-Verbindung markieren
-      </label>
-      <small class="ct-form-text">
-        Diese Verbindung wird genommen, wenn keine andere Bedingung zutrifft
+    
+    <div v-if="localEdge.sourceHandle" class="ct-form-group">
+      <label class="ct-form-label">Ausgang</label>
+      <input :value="localEdge.sourceHandle" type="text" class="ct-form-control" disabled />
+      <small class="form-text text-muted">
+        Diese Verbindung ist mit dem Ausgang "{{ localEdge.sourceHandle }}" des Decision-Nodes verbunden
       </small>
     </div>
 
-    <div v-if="!localEdge.isDefault" class="condition-section">
-      <h4>Bedingung</h4>
-      
-      <div class="ct-form-group">
-        <label class="ct-form-label">Rule Engine</label>
-        <select v-model="localEdge.condition!.engine" class="ct-form-control">
-          <option value="simple">Einfache Regeln</option>
-          <option value="jsonlogic" disabled>JSONLogic (coming soon)</option>
-          <option value="custom" disabled>Custom Expression (coming soon)</option>
-        </select>
-      </div>
-
-      <SimpleRulesEditor
-        v-if="localEdge.condition?.engine === 'simple'"
-        v-model="localEdge.condition.rule"
-        :available-fields="availableFields"
-      />
-
-      <div v-if="localEdge.condition?.engine === 'jsonlogic'" class="coming-soon">
-        <p>JSONLogic Editor wird in Kürze verfügbar sein.</p>
-      </div>
-
-      <div v-if="localEdge.condition?.engine === 'custom'" class="coming-soon">
-        <p>Custom Expression Editor wird in Kürze verfügbar sein.</p>
-      </div>
-    </div>
-
     <div class="modal-actions">
+      <button class="ct-btn ct-btn-danger" @click="deleteEdge">🗑️ Löschen</button>
+      <div style="flex: 1"></div>
       <button class="ct-btn ct-btn-secondary" @click="cancel">Abbrechen</button>
       <button class="ct-btn ct-btn-primary" @click="save">Speichern</button>
     </div>
@@ -146,5 +110,14 @@ function cancel() {
   gap: 0.5rem;
   justify-content: flex-end;
   margin-top: 1.5rem;
+}
+
+.info-text {
+  background: #e3f2fd;
+  padding: 0.75rem;
+  border-radius: 4px;
+  border-left: 4px solid #2196f3;
+  margin-bottom: 1rem;
+  color: #1565c0;
 }
 </style>

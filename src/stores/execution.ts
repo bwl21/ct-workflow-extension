@@ -156,32 +156,43 @@ export const useExecutionStore = defineStore('execution', () => {
 
     let selectedEdge;
 
-    // For DECISION nodes: evaluate conditions
+    // For DECISION nodes: evaluate conditions from node outputs
     if (currentNode.type === NodeType.DECISION) {
-      // Try to find an edge whose condition is met
-      for (const edge of outgoingEdges) {
-        if (edge.condition) {
+      const outputs = currentNode.data.outputs || [
+        { id: 'true', label: 'JA', isDefault: false },
+        { id: 'false', label: 'NEIN', isDefault: true }
+      ];
+
+      // Try to find an output whose condition is met
+      let selectedOutput = null;
+      for (const output of outputs) {
+        if (output.condition) {
           const conditionMet = evaluateRules(
-            edge.condition.engine,
-            edge.condition.rule,
+            output.condition.engine,
+            output.condition.rule,
             execution.context.variables
           );
           
           if (conditionMet) {
-            selectedEdge = edge;
+            selectedOutput = output;
             break;
           }
         }
       }
 
-      // If no condition matched, use default edge
-      if (!selectedEdge) {
-        selectedEdge = outgoingEdges.find(e => e.isDefault);
+      // If no condition matched, use default output
+      if (!selectedOutput) {
+        selectedOutput = outputs.find(o => o.isDefault);
+      }
+
+      // Find edge that uses this output
+      if (selectedOutput) {
+        selectedEdge = outgoingEdges.find(e => e.sourceHandle === selectedOutput.id);
       }
 
       // If still no edge, log error and complete
       if (!selectedEdge) {
-        console.error('No matching condition and no default edge found for decision node');
+        console.error('No matching output edge found for decision node');
         execution.status = ExecutionStatus.FAILED;
         execution.completedAt = new Date();
         return;

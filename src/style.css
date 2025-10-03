@@ -565,7 +565,18 @@ body {
 }
 
 .ct-modal-xl {
-    max-width: 1140px;
+    max-width: 95vw;
+    width: 95vw;
+    max-height: 95vh;
+    height: 95vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.ct-modal-xl .ct-modal-body {
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
 }
 
 .ct-modal-header {

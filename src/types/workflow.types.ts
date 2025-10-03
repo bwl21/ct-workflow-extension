@@ -28,12 +28,18 @@ export interface WorkflowNode {
   label: string;
   description?: string;
   position: Position;
+  dimensions?: Dimensions;
   data: NodeData;
 }
 
 export interface Position {
   x: number;
   y: number;
+}
+
+export interface Dimensions {
+  width: number;
+  height: number;
 }
 
 export interface NodeData {
@@ -49,6 +55,19 @@ export interface NodeData {
   simpleRules?: SimpleRules;
   jsonLogic?: any;
   customExpression?: string;
+  
+  // Decision Node Outputs mit Bedingungen
+  outputs?: DecisionOutput[];
+}
+
+export interface DecisionOutput {
+  id: string;
+  label: string; // z.B. "Genehmigt", "Abgelehnt"
+  condition?: {
+    engine: RuleEngine;
+    rule: any;
+  };
+  isDefault?: boolean; // Fallback wenn keine Bedingung zutrifft
 }
 
 export type RuleEngine = 'simple' | 'jsonlogic' | 'custom';
@@ -92,13 +111,8 @@ export interface WorkflowEdge {
   id: string;
   source: string;
   target: string;
+  sourceHandle?: string; // Für Decision Nodes: ID des Outputs
   label?: string;
-  // Edge condition (for decision nodes)
-  condition?: {
-    engine: RuleEngine;
-    rule: any;
-  };
-  isDefault?: boolean; // Fallback edge if no condition matches
 }
 
 export enum NodeType {

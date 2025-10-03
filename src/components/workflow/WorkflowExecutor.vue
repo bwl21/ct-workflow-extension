@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue';
 import { useWorkflowStore } from '@/stores/workflow';
 import { useExecutionStore } from '@/stores/execution';
-import WorkflowDiagram from './WorkflowDiagram.vue';
+import VueFlowDiagram from './VueFlowDiagram.vue';
 import { NodeType, ExecutionStatus } from '@/types/workflow.types';
 
 const workflowStore = useWorkflowStore();
@@ -17,10 +17,7 @@ const currentWorkflow = computed(() => {
   return workflowStore.getWorkflowById(currentExecution.value.workflowId);
 });
 
-const completedNodeIds = computed(() => {
-  if (!currentExecution.value) return [];
-  return currentExecution.value.history.map((h) => h.nodeId);
-});
+
 
 const isCompleted = computed(() => {
   return currentExecution.value?.status === ExecutionStatus.COMPLETED;
@@ -118,11 +115,11 @@ function formatDate(date: Date): string {
       <!-- Left: Diagram -->
       <div class="execution-diagram">
         <h4>Workflow-Fortschritt</h4>
-        <WorkflowDiagram
+        <VueFlowDiagram
           v-if="currentWorkflow"
-          :workflow="currentWorkflow"
+          :definition="currentWorkflow.definition"
+          :readonly="true"
           :current-node-id="currentExecution.currentNodeId"
-          :completed-node-ids="completedNodeIds"
         />
       </div>
 
