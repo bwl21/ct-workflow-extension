@@ -23,15 +23,23 @@ const outputs = computed(() => {
   ];
 });
 
-// Berechne Position für jeden Handle
+// Berechne Position für jeden Handle mit mehr Abstand
 function getHandlePosition(index: number, total: number): string {
   if (total === 1) return '50%';
   if (total === 2) {
-    return index === 0 ? '30%' : '70%';
+    return index === 0 ? '25%' : '75%';
   }
-  // Für mehr als 2 Outputs gleichmäßig verteilen
-  const spacing = 80 / (total + 1);
-  return `${10 + spacing * (index + 1)}%`;
+  // Für mehr als 2 Outputs gleichmäßig verteilen mit mehr Abstand
+  const usableWidth = 90; // 90% der Breite nutzen
+  const spacing = usableWidth / (total - 1);
+  return `${5 + spacing * index}%`;
+}
+
+// Hole Farbe für Output (mit Fallback)
+function getOutputColor(output: any): string {
+  if (output.color) return output.color;
+  // Fallback auf alte Logik
+  return output.isDefault ? '#f44336' : '#4caf50';
 }
 </script>
 
@@ -60,10 +68,10 @@ function getHandlePosition(index: number, total: number): string {
       :style="{ left: getHandlePosition(index, outputs.length) }"
     >
       <div 
-        class="handle-label" 
-        :class="{ 
-          'handle-true': !output.isDefault,
-          'handle-false': output.isDefault 
+        class="handle-label"
+        :style="{ 
+          backgroundColor: getOutputColor(output),
+          color: 'white'
         }"
       >
         {{ output.label }}
@@ -116,21 +124,14 @@ function getHandlePosition(index: number, total: number): string {
   left: 50%;
   transform: translateX(-50%);
   margin-top: 0.25rem;
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 600;
   white-space: nowrap;
   padding: 0.125rem 0.375rem;
   border-radius: 3px;
   pointer-events: none;
-}
-
-.handle-true {
-  background: #4caf50;
-  color: white;
-}
-
-.handle-false {
-  background: #f44336;
-  color: white;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

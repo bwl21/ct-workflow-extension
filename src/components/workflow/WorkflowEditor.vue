@@ -228,7 +228,7 @@ function getAvailableFields() {
   
   const fields: Array<{ name: string; label: string; type: string }> = [];
   
-  // Collect all fields from previous TASK nodes
+  // Collect all fields from all TASK nodes (not just previous ones)
   for (const node of currentWorkflow.value.definition.nodes) {
     if (node.type === NodeType.TASK && node.data.fields) {
       for (const field of node.data.fields) {
@@ -239,9 +239,6 @@ function getAvailableFields() {
         });
       }
     }
-    
-    // Stop at current node
-    if (node.id === selectedNode.value.id) break;
   }
   
   return fields;
@@ -318,6 +315,7 @@ function initializeDefaultOutputs() {
     {
       id: 'true',
       label: '✓ JA',
+      color: '#4caf50',
       condition: {
         engine: 'simple',
         rule: { conditions: [], logic: 'AND' }
@@ -327,6 +325,7 @@ function initializeDefaultOutputs() {
     {
       id: 'false',
       label: '✗ NEIN',
+      color: '#f44336',
       isDefault: true
     }
   ];
@@ -339,9 +338,14 @@ function addOutput() {
     selectedNode.value.data.outputs = [];
   }
   
+  // Generiere eine zufällige Farbe für den neuen Ausgang
+  const colors = ['#4caf50', '#2196f3', '#ff9800', '#9c27b0', '#f44336', '#00bcd4', '#8bc34a', '#ff5722'];
+  const randomColor = colors[selectedNode.value.data.outputs.length % colors.length];
+  
   const newOutput = {
     id: `output-${generateId()}`,
     label: `Ausgang ${selectedNode.value.data.outputs.length + 1}`,
+    color: randomColor,
     condition: {
       engine: 'simple' as const,
       rule: { conditions: [], logic: 'AND' as const }
@@ -733,6 +737,12 @@ function applyAutoLayout() {
                   type="text" 
                   class="ct-form-control" 
                   placeholder="Label (z.B. 'Genehmigt')"
+                />
+                <input 
+                  v-model="output.color" 
+                  type="color" 
+                  class="color-picker"
+                  :title="'Farbe für ' + output.label"
                 />
                 <label class="checkbox-label">
                   <input v-model="output.isDefault" type="checkbox" />
@@ -1322,6 +1332,15 @@ function applyAutoLayout() {
 
 .output-header .ct-form-control {
   flex: 1;
+}
+
+.color-picker {
+  width: 40px;
+  height: 32px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 2px;
 }
 
 .output-condition {

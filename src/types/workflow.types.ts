@@ -63,6 +63,7 @@ export interface NodeData {
 export interface DecisionOutput {
   id: string;
   label: string; // z.B. "Genehmigt", "Abgelehnt"
+  color?: string; // Farbe für das Handle (z.B. "#4caf50")
   condition?: {
     engine: RuleEngine;
     rule: any;
