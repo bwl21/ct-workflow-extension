@@ -58,7 +58,7 @@ function toggleRole() {
             </span>
           </div>
           <!-- Demo: Role Toggle -->
-          <button class="ct-btn ct-btn-sm ct-btn-secondary" @click="toggleRole" title="Rolle wechseln (Demo)">
+          <button class="ct-btn ct-btn-sm ct-btn-secondary" title="Rolle wechseln (Demo)" @click="toggleRole">
             {{ isAdmin ? '👤 Als Benutzer' : '⚙️ Als Admin' }}
           </button>
         </div>

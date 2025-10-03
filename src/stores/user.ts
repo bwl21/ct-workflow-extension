@@ -84,7 +84,7 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  function grantAllWorkflows(userId: string) {
+  function grantAllWorkflows(_userId: string) {
     // This would typically fetch all workflow IDs
     // For demo, we'll just mark the user as having access
     saveToLocalStorage();

@@ -43,7 +43,7 @@ const sendEmail = async () => {
     const cc = props.config.cc ? replaceVariables(props.config.cc) : undefined;
     const bcc = props.config.bcc ? replaceVariables(props.config.bcc) : undefined;
     const subject = replaceVariables(props.config.subject);
-    const body = replaceVariables(props.config.body);
+    const _body = replaceVariables(props.config.body);
 
     props.context.helpers.log.info(`Sending email to: ${to}`);
 

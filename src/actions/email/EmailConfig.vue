@@ -32,10 +32,11 @@ const availableVariables = computed(() => {
   return Object.keys(props.context.workflowContext);
 });
 
-const insertVariable = (field: 'to' | 'cc' | 'bcc' | 'subject' | 'body', variable: string) => {
-  localConfig.value[field] += `{{${variable}}}`;
-  updateConfig();
-};
+// Unused for now, but kept for future feature
+// const insertVariable = (field: 'to' | 'cc' | 'bcc' | 'subject' | 'body', variable: string) => {
+//   localConfig.value[field] += `{{${variable}}}`;
+//   updateConfig();
+// };
 </script>
 
 <template>

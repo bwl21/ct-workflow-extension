@@ -147,7 +147,7 @@ export function setupDemoData() {
   // Save to localStorage
   localStorage.setItem('workflows', JSON.stringify(workflowStore.workflows));
 
-  console.log('✓ Demo workflow created and permissions granted');
+  console.info('✓ Demo workflow created and permissions granted');
 }
 
 function generateId(): string {

@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { Workflow, WorkflowNode, WorkflowEdge } from '@/types/workflow.types';
-import { NodeType } from '@/types/workflow.types';
 
 export const useWorkflowStore = defineStore('workflow', () => {
   // State

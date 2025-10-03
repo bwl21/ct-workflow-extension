@@ -25,7 +25,9 @@ class ActionRegistry {
     this.validateAction(action);
 
     this.actions.set(action.id, action);
-    console.log(`✓ Registered action: ${action.id} (${action.name})`);
+    if (import.meta.env.DEV) {
+      console.info(`✓ Registered action: ${action.id} (${action.name})`);
+    }
   }
 
   /**
@@ -105,8 +107,8 @@ class ActionRegistry {
    */
   unregister(id: string): boolean {
     const deleted = this.actions.delete(id);
-    if (deleted) {
-      console.log(`✓ Unregistered action: ${id}`);
+    if (deleted && import.meta.env.DEV) {
+      console.info(`✓ Unregistered action: ${id}`);
     }
     return deleted;
   }
@@ -117,7 +119,9 @@ class ActionRegistry {
   clear(): void {
     this.actions.clear();
     this.initialized = false;
-    console.log('✓ Cleared all actions');
+    if (import.meta.env.DEV) {
+      console.info('✓ Cleared all actions');
+    }
   }
 
   /**
@@ -184,7 +188,9 @@ class ActionRegistry {
    */
   markInitialized(): void {
     this.initialized = true;
-    console.log(`✓ Action Registry initialized with ${this.count} actions`);
+    if (import.meta.env.DEV) {
+      console.info(`✓ Action Registry initialized with ${this.count} actions`);
+    }
   }
 
   /**

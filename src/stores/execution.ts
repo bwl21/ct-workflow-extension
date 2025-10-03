@@ -1,11 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type {
-  WorkflowExecution,
-  ExecutionContext,
-  StepHistory,
-  WorkflowNode,
-} from '@/types/workflow.types';
+import type { WorkflowExecution, StepHistory } from '@/types/workflow.types';
 import { ExecutionStatus, StepStatus, NodeType } from '@/types/workflow.types';
 import { useWorkflowStore } from './workflow';
 

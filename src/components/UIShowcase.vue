@@ -14,7 +14,7 @@ const showAlertDemo = () => {
 };
 
 const submitForm = () => {
-    console.log('Form submitted:', formData.value);
+    console.info('Form submitted:', formData.value);
     showAlertDemo();
 };
 </script>

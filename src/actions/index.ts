@@ -25,7 +25,7 @@ export function registerCustomActions() {
  * Initialisiert alle Actions
  */
 export function initializeActions() {
-  console.log('Initializing actions...');
+  console.info('Initializing actions...');
 
   registerBuiltInActions();
   registerCustomActions();
@@ -33,6 +33,7 @@ export function initializeActions() {
   actionRegistry.markInitialized();
 
   // Debug Info ausgeben
-  const debugInfo = actionRegistry.getDebugInfo();
-  console.log('Actions by category:', actionRegistry.getGroupedByCategory());
+  if (import.meta.env.DEV) {
+    console.info('Actions by category:', actionRegistry.getGroupedByCategory());
+  }
 }
