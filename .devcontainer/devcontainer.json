@@ -35,14 +35,18 @@
 					"source.fixAll.eslint": "explicit",
 					"source.organizeImports": "explicit"
 				},
-				"typescript.preferences.importModuleSpecifier": "relative",
+				// TypeScript - Use workspace version
 				"typescript.tsdk": "node_modules/typescript/lib",
 				"typescript.enablePromptUseWorkspaceTsdk": true,
+				"typescript.preferences.importModuleSpecifier": "relative",
+				// Vue/Volar
 				"vue.codeActions.enabled": true,
 				"volar.takeOverMode.enabled": true,
+				// File associations
 				"files.associations": {
 					"*.vue": "vue"
 				},
+				// Formatters per language
 				"[vue]": {
 					"editor.defaultFormatter": "esbenp.prettier-vscode"
 				},
