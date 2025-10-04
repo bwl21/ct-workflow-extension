@@ -19,6 +19,7 @@
         "@vue-flow/core": "^1.47.0",
         "@vue-flow/minimap": "^1.5.4",
         "@vue-flow/node-resizer": "^1.5.0",
+        "marked": "^16.3.0",
         "pinia": "^3.0.1",
         "vue": "^3.2.47",
         "vue-router": "^4.1.6"

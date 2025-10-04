@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useWorkflowStore } from '@/stores/workflow';
 import { useExecutionStore } from '@/stores/execution';
 import VueFlowDiagram from './VueFlowDiagram.vue';
 import { NodeType, ExecutionStatus } from '@/types/workflow.types';
+import { interpolate } from '@/utils/template-interpolation';
+import { renderMarkdownSync } from '@/utils/markdown-renderer';
 
 const workflowStore = useWorkflowStore();
 const executionStore = useExecutionStore();
@@ -17,24 +19,70 @@ const currentWorkflow = computed(() => {
   return workflowStore.getWorkflowById(currentExecution.value.workflowId);
 });
 
-
+const interpolatedDescription = computed(() => {
+  if (!currentNode.value?.description || !currentExecution.value) {
+    return currentNode.value?.description || '';
+  }
+  
+  // Kombiniere Context-Variablen mit aktuellen formData
+  // So werden Platzhalter auch während der Eingabe aufgelöst
+  const combinedContext = {
+    ...currentExecution.value.context.variables,
+    ...formData.value
+  };
+  
+  // 1. Interpoliere Platzhalter
+  const interpolated = interpolate(
+    currentNode.value.description,
+    combinedContext
+  );
+  
+  // 2. Rendere Markdown zu HTML
+  return renderMarkdownSync(interpolated);
+});
 
 const isCompleted = computed(() => {
   return currentExecution.value?.status === ExecutionStatus.COMPLETED;
 });
 
-function startWorkflow(workflowId: string) {
-  executionStore.startExecution(workflowId);
+function initializeFormData() {
+  if (!currentNode.value || currentNode.value.type !== NodeType.TASK) {
+    return;
+  }
+  
+  const fields = currentNode.value.data.fields || [];
+  const contextVars = currentExecution.value?.context.variables || {};
+  
   formData.value = {};
   
-  // Initialize multiselect fields as arrays
-  if (currentNode.value?.type === NodeType.TASK && currentNode.value.data.fields) {
-    currentNode.value.data.fields.forEach(field => {
-      if (field.type === 'multiselect') {
-        formData.value[field.name] = [];
-      }
-    });
-  }
+  fields.forEach(field => {
+    // Priorität 1: Wert aus Context (Feld wurde schon mal ausgefüllt)
+    if (contextVars[field.name] !== undefined) {
+      formData.value[field.name] = contextVars[field.name];
+    }
+    // Priorität 2: defaultValue mit Interpolation
+    // Kombiniere Context mit bereits initialisierten formData-Werten
+    else if (field.defaultValue) {
+      const combinedContext = {
+        ...contextVars,
+        ...formData.value
+      };
+      const interpolated = interpolate(
+        String(field.defaultValue),
+        combinedContext
+      );
+      formData.value[field.name] = interpolated;
+    }
+    // Priorität 3: Spezielle Defaults
+    else if (field.type === 'multiselect') {
+      formData.value[field.name] = [];
+    }
+  });
+}
+
+function startWorkflow(workflowId: string) {
+  executionStore.startExecution(workflowId);
+  initializeFormData();
 }
 
 function submitStep() {
@@ -74,6 +122,13 @@ function handleFileChange(event: Event, fieldName: string) {
 function formatDate(date: Date): string {
   return new Date(date).toLocaleString('de-DE');
 }
+
+// Watch für automatische Initialisierung bei Node-Wechsel
+watch(currentNode, () => {
+  if (currentNode.value?.type === NodeType.TASK) {
+    initializeFormData();
+  }
+}, { immediate: true });
 </script>
 
 <template>
@@ -127,9 +182,11 @@ function formatDate(date: Date): string {
       <div class="execution-workspace">
         <div v-if="!isCompleted" class="current-step">
           <h3>{{ currentNode?.label }}</h3>
-          <p v-if="currentNode?.description" class="step-description">
-            {{ currentNode.description }}
-          </p>
+          <div 
+            v-if="interpolatedDescription" 
+            class="step-description"
+            v-html="interpolatedDescription"
+          ></div>
 
           <!-- Task Form -->
           <div v-if="currentNode?.type === NodeType.TASK && currentNode.data.fields" class="task-form">
@@ -408,8 +465,104 @@ function formatDate(date: Date): string {
 }
 
 .step-description {
-  color: #666;
+  color: #333;
   margin-bottom: 1.5rem;
+  line-height: 1.6;
+  word-wrap: break-word;
+  padding: 1.5rem;
+  background: #f9f9f9;
+  border-left: 4px solid #2196f3;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+
+/* Markdown-Styling innerhalb der Beschreibung */
+.step-description h1,
+.step-description h2,
+.step-description h3 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  color: #2196f3;
+}
+
+.step-description h1 {
+  font-size: 1.5rem;
+  border-bottom: 2px solid #e0e0e0;
+  padding-bottom: 0.5rem;
+}
+
+.step-description h2 {
+  font-size: 1.25rem;
+  margin-top: 1rem;
+}
+
+.step-description h3 {
+  font-size: 1.1rem;
+  margin-top: 1rem;
+}
+
+.step-description p {
+  margin: 0.75rem 0;
+}
+
+.step-description ul,
+.step-description ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.step-description li {
+  margin: 0.25rem 0;
+}
+
+.step-description strong {
+  color: #1976d2;
+  font-weight: 600;
+}
+
+.step-description em {
+  color: #666;
+  font-style: italic;
+}
+
+.step-description blockquote {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border-left: 4px solid #ffc107;
+  color: #666;
+  font-style: italic;
+}
+
+.step-description code {
+  background: #fff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  color: #d32f2f;
+}
+
+.step-description pre {
+  background: #fff;
+  padding: 1rem;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.step-description pre code {
+  background: none;
+  padding: 0;
+  color: #333;
+}
+
+.step-description a {
+  color: #2196f3;
+  text-decoration: none;
+}
+
+.step-description a:hover {
+  text-decoration: underline;
 }
 
 .task-form {

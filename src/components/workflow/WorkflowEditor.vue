@@ -4,9 +4,11 @@ import { useWorkflowStore } from '@/stores/workflow';
 import VueFlowDiagram from './VueFlowDiagram.vue';
 import SimpleRulesEditor from './SimpleRulesEditor.vue';
 import EdgeEditor from './EdgeEditor.vue';
+import PlaceholderDropdown from './PlaceholderDropdown.vue';
 import type { WorkflowNode, WorkflowEdge } from '@/types/workflow.types';
 import { NodeType, FieldType } from '@/types/workflow.types';
 import { calculateAutoLayout } from '@/utils/auto-layout';
+import { getAvailableVariables } from '@/utils/template-interpolation';
 
 const workflowStore = useWorkflowStore();
 
@@ -23,8 +25,16 @@ const showEdgeList = ref(false);
 const highlightedEdgeId = ref<string | null>(null);
 const edgeRefs = ref<Record<string, any>>({});
 const collapsedOutputs = ref<Set<number>>(new Set());
+const collapsedFields = ref<Set<number>>(new Set());
+const descriptionTextarea = ref<HTMLTextAreaElement>();
+const fieldDefaultValueRefs = ref<Record<number, HTMLInputElement>>({});
 
 const currentWorkflow = computed(() => workflowStore.currentWorkflow);
+
+const availableVariables = computed(() => {
+  if (!currentWorkflow.value || !selectedNode.value) return [];
+  return getAvailableVariables(currentWorkflow.value.definition, selectedNode.value.id);
+});
 
 const nodeTypes = [
   { type: NodeType.START, label: 'Start', icon: '▶' },
@@ -454,6 +464,107 @@ function toggleAllOutputs() {
   }
 }
 
+function toggleFieldCollapse(index: number) {
+  if (collapsedFields.value.has(index)) {
+    collapsedFields.value.delete(index);
+  } else {
+    collapsedFields.value.add(index);
+  }
+}
+
+function collapseAllFields() {
+  if (!selectedNode.value?.data.fields) return;
+  collapsedFields.value = new Set(
+    selectedNode.value.data.fields.map((_, index) => index)
+  );
+}
+
+function expandAllFields() {
+  collapsedFields.value = new Set();
+}
+
+function toggleAllFields() {
+  if (!selectedNode.value?.data.fields) return;
+  const allCollapsed = collapsedFields.value.size === selectedNode.value.data.fields.length;
+  if (allCollapsed) {
+    expandAllFields();
+  } else {
+    collapseAllFields();
+  }
+}
+
+function getFieldTypeLabel(type: FieldType): string {
+  const labels: Record<FieldType, string> = {
+    [FieldType.TEXT]: 'Text',
+    [FieldType.TEXTAREA]: 'Textarea',
+    [FieldType.EMAIL]: 'E-Mail',
+    [FieldType.TEL]: 'Telefon',
+    [FieldType.URL]: 'URL',
+    [FieldType.NUMBER]: 'Zahl',
+    [FieldType.RANGE]: 'Bereich',
+    [FieldType.DATE]: 'Datum',
+    [FieldType.DATETIME]: 'Datum+Zeit',
+    [FieldType.TIME]: 'Zeit',
+    [FieldType.SELECT]: 'Auswahl',
+    [FieldType.MULTISELECT]: 'Mehrfach',
+    [FieldType.RADIO]: 'Radio',
+    [FieldType.CHECKBOX]: 'Checkbox',
+    [FieldType.COLOR]: 'Farbe',
+    [FieldType.FILE]: 'Datei',
+  };
+  return labels[type] || type;
+}
+
+function insertPlaceholder(variable: string) {
+  if (!selectedNode.value || !descriptionTextarea.value) return;
+  
+  const textarea = descriptionTextarea.value;
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = selectedNode.value.description || '';
+  
+  const placeholder = `{{${variable}}}`;
+  const newText = text.substring(0, start) + placeholder + text.substring(end);
+  
+  selectedNode.value.description = newText;
+  
+  // Cursor nach Platzhalter setzen
+  setTimeout(() => {
+    textarea.focus();
+    const newPos = start + placeholder.length;
+    textarea.setSelectionRange(newPos, newPos);
+  }, 0);
+}
+
+function insertPlaceholderIntoField(fieldIndex: number, variable: string) {
+  if (!selectedNode.value?.data.fields) return;
+  
+  const field = selectedNode.value.data.fields[fieldIndex];
+  const input = fieldDefaultValueRefs.value[fieldIndex];
+  
+  if (!input) {
+    // Fallback: Einfach anhängen
+    field.defaultValue = (field.defaultValue || '') + `{{${variable}}}`;
+    return;
+  }
+  
+  const start = input.selectionStart || 0;
+  const end = input.selectionEnd || 0;
+  const text = field.defaultValue || '';
+  
+  const placeholder = `{{${variable}}}`;
+  const newText = text.substring(0, start) + placeholder + text.substring(end);
+  
+  field.defaultValue = newText;
+  
+  // Cursor nach Platzhalter setzen
+  setTimeout(() => {
+    input.focus();
+    const newPos = start + placeholder.length;
+    input.setSelectionRange(newPos, newPos);
+  }, 0);
+}
+
 function handleNodeClick(nodeId: string) {
   if (!currentWorkflow.value) return;
   const node = currentWorkflow.value.definition.nodes.find(n => n.id === nodeId);
@@ -673,28 +784,70 @@ function applyAutoLayout() {
           </div>
 
           <div class="ct-form-group">
-            <label class="ct-form-label">Beschreibung</label>
-            <textarea v-model="selectedNode.description" class="ct-form-control" rows="2" />
+            <label class="ct-form-label">
+              Beschreibung
+              <PlaceholderDropdown 
+                v-if="selectedNode.type === NodeType.TASK"
+                :available-variables="availableVariables"
+                @select="insertPlaceholder"
+                style="float: right;"
+              />
+            </label>
+            <textarea 
+              ref="descriptionTextarea"
+              v-model="selectedNode.description" 
+              class="ct-form-control" 
+              rows="3"
+              placeholder="Beschreibung der Aufgabe. Verwenden Sie {{variableName}} für Platzhalter."
+            />
+            <small v-if="selectedNode.type === NodeType.TASK && availableVariables.length > 0" class="form-hint">
+              💡 Tipp: Verwenden Sie Platzhalter wie {{availableVariables[0]}} um Werte aus vorherigen Aufgaben anzuzeigen.
+            </small>
           </div>
 
         <!-- Task Fields -->
         <div v-if="selectedNode.type === NodeType.TASK && selectedNode.data.fields" class="task-fields">
-          <h4>Formularfelder</h4>
+          <div class="fields-header">
+            <h4>Formularfelder</h4>
+            <div v-if="selectedNode.data.fields.length > 0" class="collapse-controls">
+              <button 
+                class="ct-btn ct-btn-sm" 
+                @click="toggleAllFields"
+              >
+                {{ collapsedFields.size === selectedNode.data.fields.length ? 'Alle aufklappen' : 'Alle zuklappen' }}
+              </button>
+            </div>
+          </div>
           <div 
             v-for="(field, index) in selectedNode.data.fields" 
             :key="index" 
             class="field-editor"
-            :class="{ 'dragging': draggedFieldIndex === index }"
+            :class="{ 'dragging': draggedFieldIndex === index, 'collapsed': collapsedFields.has(index) }"
             draggable="true"
             @dragstart="onFieldDragStart(index)"
             @dragover="onFieldDragOver($event, index)"
             @dragend="onFieldDragEnd"
           >
-            <div class="field-row">
+            <div class="field-header" @click="toggleFieldCollapse(index)">
+              <button 
+                class="collapse-btn"
+                type="button"
+                :title="collapsedFields.has(index) ? 'Ausklappen' : 'Einklappen'"
+              >
+                {{ collapsedFields.has(index) ? '▶' : '▼' }}
+              </button>
               <div class="field-number">{{ index + 1 }}</div>
               <div class="drag-handle" title="Ziehen zum Sortieren">
                 ⋮⋮
               </div>
+              <span class="field-summary">
+                <strong>{{ field.label || field.name || 'Unbenannt' }}</strong>
+                <span class="field-type-badge">{{ getFieldTypeLabel(field.type) }}</span>
+                <span v-if="field.required" class="required-badge">Pflicht</span>
+              </span>
+            </div>
+            <div v-if="!collapsedFields.has(index)" class="field-content">
+            <div class="field-row">
               <input v-model="field.name" type="text" class="ct-form-control" placeholder="Feldname" />
               <input v-model="field.label" type="text" class="ct-form-control" placeholder="Label" />
               <select v-model="field.type" class="ct-form-control">
@@ -795,13 +948,37 @@ function applyAutoLayout() {
                 </div>
               </div>
               
+              <!-- Default Value (mit Template-Interpolation) -->
+              <div v-if="[FieldType.TEXT, FieldType.TEXTAREA, FieldType.EMAIL, FieldType.TEL, FieldType.URL, FieldType.NUMBER].includes(field.type)" class="ct-form-group">
+                <div class="field-with-placeholder-btn">
+                  <div class="field-label-row">
+                    <label class="ct-form-label">
+                      Standardwert
+                      <small style="font-weight: normal; color: #666;">(optional, kann Platzhalter enthalten)</small>
+                    </label>
+                    <PlaceholderDropdown 
+                      :available-variables="availableVariables"
+                      @select="(variable) => insertPlaceholderIntoField(index, variable)"
+                    />
+                  </div>
+                  <input 
+                    :ref="el => { if (el) fieldDefaultValueRefs[index] = el as HTMLInputElement }"
+                    v-model="field.defaultValue" 
+                    type="text" 
+                    class="ct-form-control" 
+                    :placeholder="availableVariables.length > 0 ? `z.B. {{${availableVariables[0]}}}` : 'Standardwert'"
+                  />
+                </div>
+              </div>
+              
               <!-- Placeholder for text inputs -->
               <div v-if="[FieldType.TEXT, FieldType.TEXTAREA, FieldType.EMAIL, FieldType.TEL, FieldType.URL, FieldType.NUMBER].includes(field.type)" class="ct-form-group">
-                <label class="ct-form-label">Platzhalter</label>
+                <label class="ct-form-label">Platzhalter-Text</label>
                 <input v-model="field.placeholder" type="text" class="ct-form-control" placeholder="z.B. Bitte eingeben..." />
               </div>
             </div>
-          </div>
+            </div> <!-- end field-content -->
+          </div> <!-- end field-editor -->
           <button class="ct-btn ct-btn-secondary ct-btn-sm" @click="addField">+ Feld hinzufügen</button>
         </div>
 
@@ -1259,6 +1436,83 @@ function applyAutoLayout() {
   background: #f0f8ff;
 }
 
+.field-editor.collapsed {
+  cursor: pointer;
+}
+
+.field-editor.collapsed:hover {
+  background: #f9f9f9;
+}
+
+.fields-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.fields-header h4 {
+  margin: 0;
+}
+
+.field-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  margin: -0.75rem -0.75rem 0.75rem -0.75rem;
+  background: #f5f5f5;
+  border-radius: 4px 4px 0 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.field-header:hover {
+  background: #eee;
+}
+
+.field-header .collapse-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.875rem;
+  cursor: pointer;
+  color: #666;
+  width: 20px;
+  text-align: center;
+}
+
+.field-header .field-summary {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.field-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #e3f2fd;
+  color: #1976d2;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.required-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #ffebee;
+  color: #c62828;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.field-content {
+  /* Content is shown when not collapsed */
+}
+
 .field-row {
   display: flex;
   gap: 0.5rem;
@@ -1317,6 +1571,22 @@ function applyAutoLayout() {
 .field-actions button:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+.field-with-placeholder-btn {
+  width: 100%;
+}
+
+.field-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.field-label-row .ct-form-label {
+  margin-bottom: 0;
+  flex: 1;
 }
 
 .field-options {
@@ -1618,6 +1888,14 @@ function applyAutoLayout() {
   font-weight: 600;
   margin-bottom: 0.5rem;
   display: block;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: #666;
+  font-style: italic;
 }
 
 .default-info {

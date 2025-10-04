@@ -48,12 +48,20 @@ export function setupDemoData() {
     data: {},
   } as WorkflowNode;
 
-  // Task 1: Personal Data
+  // Task 1: Personal Data (mit Markdown und Live-Interpolation)
   const taskPersonal = {
     id: 'node-personal',
     type: NodeType.TASK,
     label: 'Persönliche Daten',
-    description: 'Bitte gib deine persönlichen Daten ein',
+    description: `# Willkommen {{firstName}} {{lastName}}!
+
+Bitte vervollständigen Sie Ihre **persönlichen Daten** für die Mitgliederaufnahme.
+
+## Was wir benötigen:
+- Vorname und Nachname
+- E-Mail-Adresse für die Kommunikation
+
+*Alle Daten werden vertraulich behandelt.*`,
     position: { x: 300, y: 200 },
     data: {
       fields: [
@@ -82,12 +90,26 @@ export function setupDemoData() {
     },
   } as WorkflowNode;
 
-  // Task 2: Address
+  // Task 2: Address (mit Markdown, Template-Interpolation und langem Text)
   const taskAddress = {
     id: 'node-address',
     type: NodeType.TASK,
     label: 'Adresse',
-    description: 'Bitte gib deine Adresse ein',
+    description: `## Hallo {{firstName}} {{lastName}}!
+
+Vielen Dank für Ihre Registrierung! 
+
+### Ihre bisherigen Angaben:
+- **Name:** {{firstName}} {{lastName}}
+- **E-Mail:** {{email}}
+
+### Nächster Schritt: Adressdaten
+
+Um Ihre Mitgliedschaft zu vervollständigen, benötigen wir noch Ihre **Adressdaten**. 
+
+> Diese Informationen werden vertraulich behandelt und nur für administrative Zwecke verwendet.
+
+Bitte geben Sie Ihre vollständige Adresse ein:`,
     position: { x: 500, y: 200 },
     data: {
       fields: [
@@ -111,6 +133,13 @@ export function setupDemoData() {
           type: FieldType.TEXT,
           required: true,
           placeholder: '12345',
+        },
+        {
+          name: 'email',
+          label: 'E-Mail (Bestätigung)',
+          type: FieldType.EMAIL,
+          required: true,
+          defaultValue: '{{email}}',
         },
       ],
     },
