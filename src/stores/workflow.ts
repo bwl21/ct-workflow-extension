@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { Workflow, WorkflowNode, WorkflowEdge } from '@/types/workflow.types';
+<<<<<<< Updated upstream
+=======
+import { useHistoryStore } from './history';
+import { deepClone } from '@/utils/clone';
+>>>>>>> Stashed changes
 
 export const useWorkflowStore = defineStore('workflow', () => {
   // State
@@ -56,11 +61,45 @@ export const useWorkflowStore = defineStore('workflow', () => {
   }
 
   function updateWorkflow(id: string, updates: Partial<Workflow>) {
+<<<<<<< Updated upstream
     const workflow = getWorkflowById(id);
     if (workflow) {
       Object.assign(workflow, updates);
       workflow.updatedAt = new Date();
       saveToLocalStorage();
+=======
+    const index = workflows.value.findIndex((w) => w.id === id);
+    if (index > -1) {
+      // Replace the entire workflow object to trigger reactivity
+      workflows.value[index] = {
+        ...workflows.value[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+      // Save to localStorage without history (history is saved explicitly by operations)
+      saveToLocalStorage(false);
+    }
+  }
+
+  /**
+   * Replace a workflow completely (used for undo/redo)
+   * Does not save to history or update timestamps
+   */
+  function replaceWorkflow(workflow: Workflow) {
+    console.log('[Workflow] replaceWorkflow called with workflow:', workflow.id, workflow.name);
+    const index = workflows.value.findIndex((w) => w.id === workflow.id);
+    console.log('[Workflow] Found workflow at index:', index);
+    if (index > -1) {
+      const current = workflows.value[index];
+      
+      // Replace nodes and edges arrays completely to trigger Vue reactivity
+      current.definition.nodes = [...workflow.definition.nodes];
+      current.definition.edges = [...workflow.definition.edges];
+      current.definition.metadata = { ...workflow.definition.metadata };
+      
+      console.log('[Workflow] Workflow definition replaced, nodes:', current.definition.nodes.length, 'edges:', current.definition.edges.length);
+      saveToLocalStorage(false);
+>>>>>>> Stashed changes
     }
   }
 
@@ -76,14 +115,42 @@ export const useWorkflowStore = defineStore('workflow', () => {
   }
 
   function setCurrentWorkflow(id: string | null) {
+    console.log('[Workflow] setCurrentWorkflow called with id:', id);
     currentWorkflowId.value = id;
+<<<<<<< Updated upstream
+=======
+    
+    // Clear history and take snapshot when workflow is loaded
+    if (id) {
+      const workflow = getWorkflowById(id);
+      if (workflow) {
+        const historyStore = useHistoryStore();
+        console.log('[Workflow] Clearing history and taking snapshot');
+        historyStore.clearHistory();
+        historyStore.takeSnapshot(workflow);
+        console.log('[Workflow] Snapshot taken, undoStack size:', historyStore.undoStackSize);
+      }
+    }
+>>>>>>> Stashed changes
   }
 
   function addNode(workflowId: string, node: WorkflowNode) {
     const workflow = getWorkflowById(workflowId);
     if (workflow) {
+<<<<<<< Updated upstream
       workflow.definition.nodes.push(node);
       workflow.updatedAt = new Date();
+=======
+      // Create new nodes array (triggers reactivity)
+      const nodes = [...workflow.definition.nodes, node];
+      
+      updateWorkflow(workflowId, {
+        definition: {
+          ...workflow.definition,
+          nodes,
+        }
+      });
+>>>>>>> Stashed changes
       saveToLocalStorage();
     }
   }
@@ -95,7 +162,12 @@ export const useWorkflowStore = defineStore('workflow', () => {
       if (node) {
         Object.assign(node, updates);
         workflow.updatedAt = new Date();
+<<<<<<< Updated upstream
         saveToLocalStorage();
+=======
+        // Don't save to history - let the caller decide (e.g., debounced in WorkflowEditor)
+        saveToLocalStorage(false);
+>>>>>>> Stashed changes
       }
     }
   }
@@ -108,6 +180,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
       if (nodeIndex > -1) {
         workflow.definition.nodes.splice(nodeIndex, 1);
       }
+<<<<<<< Updated upstream
 
       // Remove connected edges
       workflow.definition.edges = workflow.definition.edges.filter(
@@ -117,13 +190,29 @@ export const useWorkflowStore = defineStore('workflow', () => {
       workflow.updatedAt = new Date();
       saveToLocalStorage();
     }
+=======
+    });
+    saveToLocalStorage();
+>>>>>>> Stashed changes
   }
 
   function addEdge(workflowId: string, edge: WorkflowEdge) {
     const workflow = getWorkflowById(workflowId);
     if (workflow) {
+<<<<<<< Updated upstream
       workflow.definition.edges.push(edge);
       workflow.updatedAt = new Date();
+=======
+      // Create new edges array (triggers reactivity)
+      const edges = [...workflow.definition.edges, edge];
+      
+      updateWorkflow(workflowId, {
+        definition: {
+          ...workflow.definition,
+          edges,
+        }
+      });
+>>>>>>> Stashed changes
       saveToLocalStorage();
     }
   }
@@ -131,19 +220,43 @@ export const useWorkflowStore = defineStore('workflow', () => {
   function removeEdge(workflowId: string, edgeId: string) {
     const workflow = getWorkflowById(workflowId);
     if (workflow) {
+<<<<<<< Updated upstream
       const index = workflow.definition.edges.findIndex((e) => e.id === edgeId);
       if (index > -1) {
         workflow.definition.edges.splice(index, 1);
         workflow.updatedAt = new Date();
         saveToLocalStorage();
       }
+=======
+      // Create new edges array without the removed edge (triggers reactivity)
+      const edges = workflow.definition.edges.filter((e) => e.id !== edgeId);
+      
+      updateWorkflow(workflowId, {
+        definition: {
+          ...workflow.definition,
+          edges,
+        }
+      });
+      saveToLocalStorage();
+>>>>>>> Stashed changes
     }
   }
 
   // LocalStorage
-  function saveToLocalStorage() {
+  function saveToLocalStorage(saveHistory: boolean = true) {
     try {
       localStorage.setItem('workflows', JSON.stringify(workflows.value));
+      
+      // Save current workflow to history after persisting (if requested)
+      if (saveHistory && currentWorkflowId.value) {
+        const workflow = getWorkflowById(currentWorkflowId.value);
+        if (workflow) {
+          console.log('[Workflow] saveToLocalStorage: saving to history');
+          const historyStore = useHistoryStore();
+          historyStore.saveState(deepClone(workflow));
+          console.log('[Workflow] saveToLocalStorage: undoStack size:', historyStore.undoStackSize);
+        }
+      }
     } catch (error) {
       console.error('Failed to save workflows to localStorage:', error);
     }
@@ -182,8 +295,8 @@ export const useWorkflowStore = defineStore('workflow', () => {
             updatedAt: new Date(w.updatedAt),
           };
         });
-        // Save migrated workflows
-        saveToLocalStorage();
+        // Save migrated workflows (without history)
+        saveToLocalStorage(false);
       }
     } catch (error) {
       console.error('Failed to load workflows from localStorage:', error);
@@ -214,6 +327,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     createWorkflow,
     addWorkflow,
     updateWorkflow,
+    replaceWorkflow,
     deleteWorkflow,
     setCurrentWorkflow,
     addNode,

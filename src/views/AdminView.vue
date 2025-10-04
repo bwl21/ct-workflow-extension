@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useWorkflowStore } from '@/stores/workflow';
+import { useEditSessionStore } from '@/stores/editSession';
 import WorkflowEditor from '@/components/workflow/WorkflowEditor.vue';
 import type { Workflow } from '@/types/workflow.types';
 import { setupDemoData } from '@/utils/demo-setup';
 
 const workflowStore = useWorkflowStore();
+const editSessionStore = useEditSessionStore();
 
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
@@ -47,6 +49,44 @@ function closeEditModal() {
   showEditModal.value = false;
   selectedWorkflow.value = null;
   workflowStore.setCurrentWorkflow(null);
+}
+
+function cancelEditModal() {
+  if (!selectedWorkflow.value) return;
+  
+  const hasChanges = editSessionStore.undoStackSize > 0 || editSessionStore.redoStackSize > 0;
+  
+  if (hasChanges) {
+    const confirmed = confirm('Möchten Sie die Bearbeitung wirklich abbrechen? Alle nicht gespeicherten Änderungen gehen verloren.');
+    if (!confirmed) return;
+  }
+  
+  // Clear edit session
+  editSessionStore.clearSession(selectedWorkflow.value.id);
+  
+  // Close modal
+  closeEditModal();
+}
+
+function finishEditModal() {
+  if (!selectedWorkflow.value) return;
+  
+  // Get current state from edit session
+  const currentState = editSessionStore.getCurrentState(selectedWorkflow.value.id);
+  if (currentState) {
+    // Update workflow with current state
+    const workflow = workflowStore.getWorkflowById(selectedWorkflow.value.id);
+    if (workflow) {
+      workflow.definition = currentState;
+      workflowStore.updateWorkflow(workflow.id, workflow);
+    }
+  }
+  
+  // Clear edit session
+  editSessionStore.clearSession(selectedWorkflow.value.id);
+  
+  // Close modal
+  closeEditModal();
 }
 
 function openDeleteModal(workflow: Workflow) {
@@ -230,13 +270,14 @@ function formatDate(date: Date): string {
       <div class="ct-modal ct-modal-xl">
         <div class="ct-modal-header">
           <h3 class="ct-modal-title">Workflow bearbeiten: {{ selectedWorkflow?.name }}</h3>
-          <button class="ct-btn-close" @click="closeEditModal"></button>
+          <button class="ct-btn-close" @click="cancelEditModal"></button>
         </div>
         <div class="ct-modal-body editor-modal-body">
           <WorkflowEditor />
         </div>
         <div class="ct-modal-footer">
-          <button class="ct-btn ct-btn-primary" @click="closeEditModal">Fertig</button>
+          <button class="ct-btn ct-btn-secondary" @click="cancelEditModal">Abbrechen</button>
+          <button class="ct-btn ct-btn-primary" @click="finishEditModal">Fertig</button>
         </div>
       </div>
     </div>

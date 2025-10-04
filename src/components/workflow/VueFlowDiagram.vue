@@ -42,6 +42,9 @@ const { fitView, onNodesChange, onConnect, onEdgesChange, onEdgeUpdate, updateNo
 const vueFlowNodes = ref<Node[]>([]);
 const vueFlowEdges = ref<Edge[]>([]);
 
+// Flag to prevent watch from triggering during internal position updates
+const isUpdatingFromVueFlow = ref(false);
+
 // Convert workflow nodes to VueFlow nodes
 function convertNodes(): Node[] {
   return props.definition.nodes.map((node: WorkflowNode) => {
@@ -124,8 +127,18 @@ function convertEdges(): Edge[] {
 watch(
   () => props.definition,
   () => {
+    console.log('[VueFlowDiagram] watch triggered, isUpdatingFromVueFlow:', isUpdatingFromVueFlow.value, 'nodes:', props.definition.nodes.length);
+    
+    // Skip update if we're in the middle of updating from VueFlow
+    if (isUpdatingFromVueFlow.value) {
+      console.log('[VueFlowDiagram] Skipping update because isUpdatingFromVueFlow is true');
+      return;
+    }
+    
+    console.log('[VueFlowDiagram] Converting nodes and edges');
     vueFlowNodes.value = convertNodes();
     vueFlowEdges.value = convertEdges();
+    console.log('[VueFlowDiagram] vueFlowNodes updated, count:', vueFlowNodes.value.length);
     
     // Force VueFlow to recalculate edge positions for all nodes
     // This is needed when output order changes in decision nodes
@@ -182,33 +195,45 @@ onConnect((connection) => {
 // Handle node position and dimension changes
 onNodesChange((changes: NodeChange[]) => {
   if (!props.readonly) {
-    const relevantChanges = changes.filter(c => 
-      (c.type === 'position' && 'position' in c && c.position) ||
-      (c.type === 'dimensions' && 'dimensions' in c && c.dimensions)
-    );
+    // Only process position changes when dragging is complete (dragging === false)
+    // and dimension changes when resizing is complete (resizing === false)
+    const relevantChanges = changes.filter(c => {
+      if (c.type === 'position') {
+        const posChange = c as { dragging?: boolean };
+        return posChange.dragging === false;
+      }
+      if (c.type === 'dimensions') {
+        const dimChange = c as { resizing?: boolean };
+        return dimChange.resizing === false;
+      }
+      return false;
+    });
     
     if (relevantChanges.length > 0) {
+      console.log('[VueFlowDiagram] Drag/Resize complete, syncing all nodes from VueFlow');
+      
+      // Set flag to prevent watch from re-converting nodes
+      isUpdatingFromVueFlow.value = true;
+      
+      // Simply sync all nodes from VueFlow back to definition
       const updatedNodes = props.definition.nodes.map(node => {
-        const positionChange = relevantChanges.find(c => 
-          c.type === 'position' && 'id' in c && c.id === node.id
-        );
-        const dimensionChange = relevantChanges.find(c => 
-          c.type === 'dimensions' && 'id' in c && c.id === node.id
-        );
+        const vueFlowNode = vueFlowNodes.value.find(n => n.id === node.id);
+        if (!vueFlowNode) return node;
         
-        let updatedNode = { ...node };
-        
-        if (positionChange && 'position' in positionChange && positionChange.position) {
-          updatedNode.position = positionChange.position;
-        }
-        
-        if (dimensionChange && 'dimensions' in dimensionChange && dimensionChange.dimensions) {
-          updatedNode.dimensions = dimensionChange.dimensions;
-        }
-        
-        return updatedNode;
+        return {
+          ...node,
+          position: vueFlowNode.position,
+          dimensions: (vueFlowNode as any).dimensions || node.dimensions,
+        };
       });
+      
+      console.log('[VueFlowDiagram] Emitting nodesChange with', updatedNodes.length, 'nodes');
       emit('nodesChange', updatedNodes);
+      
+      // Reset flag after a short delay to allow the update to propagate
+      setTimeout(() => {
+        isUpdatingFromVueFlow.value = false;
+      }, 100);
     }
   }
 });

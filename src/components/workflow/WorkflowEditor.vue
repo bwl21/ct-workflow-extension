@@ -1,14 +1,25 @@
 <script setup lang="ts">
+<<<<<<< Updated upstream
 import { ref, computed } from 'vue';
 import { useWorkflowStore } from '@/stores/workflow';
+=======
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { useWorkflowStore } from '@/stores/workflow';
+import { useEditSessionStore } from '@/stores/editSession';
+>>>>>>> Stashed changes
 import VueFlowDiagram from './VueFlowDiagram.vue';
 import SimpleRulesEditor from './SimpleRulesEditor.vue';
 import EdgeEditor from './EdgeEditor.vue';
 import type { WorkflowNode, WorkflowEdge } from '@/types/workflow.types';
 import { NodeType, FieldType } from '@/types/workflow.types';
 import { calculateAutoLayout } from '@/utils/auto-layout';
+import { deepClone } from '@/utils/clone';
 
 const workflowStore = useWorkflowStore();
+<<<<<<< Updated upstream
+=======
+const editSessionStore = useEditSessionStore();
+>>>>>>> Stashed changes
 
 const workflowName = ref('');
 const workflowDescription = ref('');
@@ -25,6 +36,41 @@ const edgeRefs = ref<Record<string, any>>({});
 const collapsedOutputs = ref<Set<number>>(new Set());
 
 const currentWorkflow = computed(() => workflowStore.currentWorkflow);
+
+// Unwatch function for automatic edit session updates
+let unwatchWorkflow: (() => void) | null = null;
+
+// Watch for workflow changes to start/resume edit session
+watch(currentWorkflow, (newWorkflow, oldWorkflow) => {
+  // Clean up previous watch
+  if (unwatchWorkflow) {
+    unwatchWorkflow();
+    unwatchWorkflow = null;
+  }
+  
+  if (newWorkflow && newWorkflow.id !== oldWorkflow?.id) {
+    console.log('[WorkflowEditor] Workflow changed, starting edit session');
+    const success = editSessionStore.startSession(newWorkflow.id, newWorkflow.definition);
+    if (!success) {
+      alert('Dieser Workflow wird bereits in einem anderen Fenster bearbeitet.');
+      // TODO: Set to read-only mode
+      return;
+    }
+    
+    // Start watching for changes
+    unwatchWorkflow = editSessionStore.watchWorkflow(
+      newWorkflow.id,
+      () => currentWorkflow.value?.definition || null
+    );
+  }
+}, { immediate: true });
+
+// Cleanup on unmount
+onUnmounted(() => {
+  if (unwatchWorkflow) {
+    unwatchWorkflow();
+  }
+});
 
 const nodeTypes = [
   { type: NodeType.START, label: 'Start', icon: '▶' },
@@ -129,7 +175,8 @@ function getDefaultLabel(type: NodeType): string {
 }
 
 function editNode(node: WorkflowNode) {
-  selectedNode.value = { ...node };
+  // Deep clone to prevent editing the original node
+  selectedNode.value = deepClone(node);
   showNodeEditor.value = true;
 }
 
@@ -137,6 +184,12 @@ function saveNode() {
   if (!selectedNode.value || !currentWorkflow.value) return;
 
   workflowStore.updateNode(currentWorkflow.value.id, selectedNode.value.id, selectedNode.value);
+  
+  showNodeEditor.value = false;
+  selectedNode.value = null;
+}
+
+function cancelNodeEdit() {
   showNodeEditor.value = false;
   selectedNode.value = null;
 }
@@ -464,6 +517,10 @@ function handleNodeClick(nodeId: string) {
 
 function handleNodesChange(updatedNodes: WorkflowNode[]) {
   if (!currentWorkflow.value) return;
+  
+  console.log('[WorkflowEditor] handleNodesChange called, isUndoRedoOperation:', editSessionStore.isUndoRedoOperation);
+  
+  // Update workflow definition (watch will handle edit session update)
   currentWorkflow.value.definition.nodes = updatedNodes;
   workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
 }
@@ -501,6 +558,56 @@ function handleEdgeUpdate(update: { id: string; source: string; target: string; 
   }
 }
 
+<<<<<<< Updated upstream
+=======
+// Undo/Redo functions
+function handleUndo() {
+  if (!currentWorkflow.value || !editSessionStore.canUndo) return;
+  
+  console.log('[WorkflowEditor] handleUndo called');
+  
+  // Undo returns the previous definition
+  const previousDefinition = editSessionStore.undo(currentWorkflow.value.id);
+  if (previousDefinition) {
+    console.log('[WorkflowEditor] Applying undo state');
+    currentWorkflow.value.definition = previousDefinition;
+    workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
+  }
+}
+
+function handleRedo() {
+  if (!currentWorkflow.value || !editSessionStore.canRedo) return;
+  
+  console.log('[WorkflowEditor] handleRedo called');
+  
+  // Redo returns the next definition
+  const nextDefinition = editSessionStore.redo(currentWorkflow.value.id);
+  if (nextDefinition) {
+    console.log('[WorkflowEditor] Applying redo state');
+    currentWorkflow.value.definition = nextDefinition;
+    workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
+  }
+}
+
+// Keyboard shortcuts
+function handleKeyDown(event: KeyboardEvent) {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const ctrlKey = isMac ? event.metaKey : event.ctrlKey;
+  
+  // Undo: Ctrl+Z / Cmd+Z
+  if (ctrlKey && event.key === 'z' && !event.shiftKey) {
+    event.preventDefault();
+    handleUndo();
+  }
+  
+  // Redo: Ctrl+Y / Cmd+Shift+Z
+  if ((ctrlKey && event.key === 'y') || (ctrlKey && event.shiftKey && event.key === 'z')) {
+    event.preventDefault();
+    handleRedo();
+  }
+}
+
+>>>>>>> Stashed changes
 function applyAutoLayout() {
   if (!currentWorkflow.value) return;
   
@@ -521,6 +628,24 @@ function applyAutoLayout() {
   currentWorkflow.value.definition.nodes = layoutedNodes;
   workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
 }
+<<<<<<< Updated upstream
+=======
+
+// Lifecycle hooks
+onMounted(() => {
+  window.addEventListener('keydown', handleKeyDown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown);
+  
+  // End edit session (unlock it) when leaving the editor
+  if (currentWorkflow.value) {
+    console.log('[WorkflowEditor] Component unmounted, ending edit session');
+    editSessionStore.endSession(currentWorkflow.value.id);
+  }
+});
+>>>>>>> Stashed changes
 </script>
 
 <template>
@@ -537,6 +662,25 @@ function applyAutoLayout() {
           <p>{{ currentWorkflow.description }}</p>
         </div>
         <div class="header-actions">
+<<<<<<< Updated upstream
+=======
+          <button 
+            class="ct-btn ct-btn-secondary" 
+            @click="handleUndo" 
+            :disabled="!editSessionStore.canUndo"
+            title="Rückgängig (Ctrl+Z / Cmd+Z)"
+          >
+            ↶ Undo ({{ editSessionStore.undoStackSize }})
+          </button>
+          <button 
+            class="ct-btn ct-btn-secondary" 
+            @click="handleRedo" 
+            :disabled="!editSessionStore.canRedo"
+            title="Wiederherstellen (Ctrl+Y / Cmd+Shift+Z)"
+          >
+            ↷ Redo ({{ editSessionStore.redoStackSize }})
+          </button>
+>>>>>>> Stashed changes
           <button class="ct-btn ct-btn-secondary" @click="applyAutoLayout" title="Automatisches Layout anwenden">
             🔄 Auto-Layout
           </button>
@@ -663,7 +807,7 @@ function applyAutoLayout() {
       <div class="modal-content modal-large">
         <div class="modal-header-sticky">
           <h3>Knoten bearbeiten: {{ selectedNode.label }}</h3>
-          <button class="modal-close-btn" @click="showNodeEditor = false" title="Schließen">✕</button>
+          <button class="modal-close-btn" @click="cancelNodeEdit" title="Schließen">✕</button>
         </div>
 
         <div class="modal-body-scrollable">
@@ -924,7 +1068,19 @@ function applyAutoLayout() {
         </div>
 
         <div class="modal-actions-sticky">
+<<<<<<< Updated upstream
           <button class="ct-btn ct-btn-secondary" @click="showNodeEditor = false">Abbrechen</button>
+=======
+          <button 
+            v-if="selectedNode.type !== NodeType.START"
+            class="ct-btn ct-btn-danger" 
+            @click="deleteNode(selectedNode.id); showNodeEditor = false"
+            style="margin-right: auto;"
+          >
+            🗑️ Löschen
+          </button>
+          <button class="ct-btn ct-btn-secondary" @click="cancelNodeEdit">Abbrechen</button>
+>>>>>>> Stashed changes
           <button class="ct-btn ct-btn-primary" @click="saveNode">Speichern</button>
         </div>
       </div>
