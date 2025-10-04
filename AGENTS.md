@@ -19,6 +19,27 @@ Alle Dokumentationsdateien MÜSSEN im Verzeichnis `/docs` erstellt werden.
 /MIGRATION_GUIDE.md
 ```
 
+### Unterverzeichnisse für zusammenhängende Dokumentation
+Wenn mehrere Dokumentationsdateien zu einem Feature/Thema gehören, MÜSSEN diese in einem Unterverzeichnis organisiert werden.
+
+**Richtig:**
+```
+/docs/template-interpolation/
+  ├── README.md                    # Übersicht
+  ├── FEATURE_SPEC.md             # Feature-Spezifikation
+  ├── IMPLEMENTATION.md           # Implementierungsplan
+  └── UI_UX.md                    # UI/UX Spezifikation
+```
+
+**Falsch:**
+```
+/docs/TEMPLATE_INTERPOLATION.md
+/docs/IMPLEMENTATION_TEMPLATE_INTERPOLATION.md
+/docs/UI_UX_TEMPLATE_INTERPOLATION.md
+```
+
+**Regel:** Ab 3 zusammenhängenden Dokumenten → Unterverzeichnis erstellen
+
 ### Ausnahmen
 Nur folgende Dateien dürfen im Root-Verzeichnis bleiben:
 - `README.md` - Projekt-Übersicht
