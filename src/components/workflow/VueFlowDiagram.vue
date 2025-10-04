@@ -38,6 +38,18 @@ const emit = defineEmits<{
 // VueFlow instance
 const { fitView, onNodesChange, onConnect, onEdgesChange, onEdgeUpdate, updateNodeInternals } = useVueFlow();
 
+// Fit view with better defaults
+function handleFitView() {
+  setTimeout(() => {
+    fitView({ 
+      padding: 0.15, 
+      duration: 500,
+      maxZoom: 1.2,
+      minZoom: 0.3
+    });
+  }, 50);
+}
+
 // Local state for VueFlow
 const vueFlowNodes = ref<Node[]>([]);
 const vueFlowEdges = ref<Edge[]>([]);
@@ -240,16 +252,26 @@ onEdgeUpdate(({ edge, connection }) => {
 watch(
   () => vueFlowNodes.value.length,
   () => {
-    setTimeout(() => {
-      fitView({ padding: 0.2, duration: 300 });
-    }, 100);
+    handleFitView();
   }
 );
 
 onMounted(() => {
-  setTimeout(() => {
-    fitView({ padding: 0.2, duration: 300 });
-  }, 100);
+  handleFitView();
+  
+  // Keyboard shortcut for fit view
+  const handleKeyPress = (e: KeyboardEvent) => {
+    if (e.key === 'f' || e.key === 'F') {
+      handleFitView();
+    }
+  };
+  
+  window.addEventListener('keydown', handleKeyPress);
+  
+  // Cleanup
+  return () => {
+    window.removeEventListener('keydown', handleKeyPress);
+  };
 });
 </script>
 
@@ -272,8 +294,17 @@ onMounted(() => {
       @edge-click="onEdgeClick"
     >
       <Background pattern-color="#aaa" :gap="15" />
-      <Controls v-if="!readonly" />
+      <Controls />
       <MiniMap v-if="!readonly" />
+
+      <!-- Fit View Button -->
+      <Panel position="top-left" class="fit-view-panel">
+        <button @click="handleFitView" class="fit-view-button" title="Gesamtes Diagramm anzeigen (F)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+          </svg>
+        </button>
+      </Panel>
 
       <Panel v-if="readonly && currentNodeId" position="top-right" class="info-panel">
         <div class="panel-content">
@@ -309,6 +340,34 @@ onMounted(() => {
   50% {
     box-shadow: 0 0 0 10px rgba(76, 175, 80, 0);
   }
+}
+
+.fit-view-panel {
+  background: transparent;
+  padding: 0;
+}
+
+.fit-view-button {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.fit-view-button:hover {
+  background: #f5f5f5;
+  border-color: #999;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.fit-view-button:active {
+  transform: scale(0.95);
 }
 
 .info-panel {
