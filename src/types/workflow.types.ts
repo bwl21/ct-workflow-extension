@@ -141,6 +141,7 @@ export enum FieldType {
   RANGE = 'range',
   COLOR = 'color',
   FILE = 'file',
+  DISPLAY = 'display', // Read-only Informationsfeld mit Markdown + Interpolation
 }
 
 export enum ConditionOperator {

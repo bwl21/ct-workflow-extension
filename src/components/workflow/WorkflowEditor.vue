@@ -511,6 +511,7 @@ function getFieldTypeLabel(type: FieldType): string {
     [FieldType.CHECKBOX]: 'Checkbox',
     [FieldType.COLOR]: 'Farbe',
     [FieldType.FILE]: 'Datei',
+    [FieldType.DISPLAY]: 'Anzeige',
   };
   return labels[type] || type;
 }
@@ -876,6 +877,7 @@ function applyAutoLayout() {
                 <optgroup label="Sonstige">
                   <option :value="FieldType.COLOR">Farbauswahl</option>
                   <option :value="FieldType.FILE">Datei-Upload</option>
+                  <option :value="FieldType.DISPLAY">📋 Anzeige (Read-only)</option>
                 </optgroup>
               </select>
               <label>
@@ -945,6 +947,32 @@ function applyAutoLayout() {
                     <input v-model="field.multiple" type="checkbox" />
                     Mehrere Dateien erlauben
                   </label>
+                </div>
+              </div>
+              
+              <!-- DISPLAY Field Content (Markdown + Interpolation) -->
+              <div v-if="field.type === FieldType.DISPLAY" class="ct-form-group">
+                <div class="field-with-placeholder-btn">
+                  <div class="field-label-row">
+                    <label class="ct-form-label">
+                      Inhalt
+                      <small style="font-weight: normal; color: #666;">(Markdown + Platzhalter)</small>
+                    </label>
+                    <PlaceholderDropdown 
+                      :available-variables="availableVariables"
+                      @select="(variable) => insertPlaceholderIntoField(index, variable)"
+                    />
+                  </div>
+                  <textarea
+                    :ref="el => { if (el) fieldDefaultValueRefs[index] = el as HTMLInputElement }"
+                    v-model="field.defaultValue" 
+                    class="ct-form-control" 
+                    rows="6"
+                    :placeholder="availableVariables.length > 0 ? `z.B. **Empfänger:** {{${availableVariables[0]}}}` : 'Markdown-Text mit Platzhaltern'"
+                  />
+                  <small class="form-hint">
+                    💡 Unterstützt Markdown-Formatierung und Platzhalter. Wird read-only mit Copy-Button angezeigt.
+                  </small>
                 </div>
               </div>
               

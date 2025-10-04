@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useWorkflowStore } from '@/stores/workflow';
 import { useExecutionStore } from '@/stores/execution';
 import VueFlowDiagram from './VueFlowDiagram.vue';
 import { NodeType, ExecutionStatus } from '@/types/workflow.types';
 import { interpolate } from '@/utils/template-interpolation';
 import { renderMarkdownSync } from '@/utils/markdown-renderer';
+import { extractStyledHTML, extractPlainHTML } from '@/utils/html-extractor';
+import { useToast } from '@/composables/useToast';
 
 const workflowStore = useWorkflowStore();
 const executionStore = useExecutionStore();
+const { showSuccess } = useToast();
 
 const formData = ref<Record<string, any>>({});
 
@@ -123,12 +126,138 @@ function formatDate(date: Date): string {
   return new Date(date).toLocaleString('de-DE');
 }
 
+function getInterpolatedFieldValue(field: any): string {
+  if (!currentExecution.value) return '';
+  
+  // Kombiniere Context mit formData für Live-Interpolation
+  const combinedContext = {
+    ...currentExecution.value.context.variables,
+    ...formData.value
+  };
+  
+  // 1. Interpoliere Platzhalter im defaultValue
+  const interpolated = interpolate(
+    field.defaultValue || '',
+    combinedContext
+  );
+  
+  // 2. Rendere Markdown zu HTML
+  return renderMarkdownSync(interpolated);
+}
+
+type CopyFormat = 'markdown' | 'html-styled' | 'html-plain';
+
+async function copyToClipboard(fieldName: string, format: CopyFormat = 'markdown') {
+  if (!currentNode.value?.data.fields) return;
+  
+  const field = currentNode.value.data.fields.find(f => f.name === fieldName);
+  if (!field) return;
+  
+  // Kombiniere Context mit formData
+  const combinedContext = {
+    ...currentExecution.value?.context.variables || {},
+    ...formData.value
+  };
+  
+  // Interpoliere Platzhalter
+  const interpolated = interpolate(
+    field.defaultValue || '',
+    combinedContext
+  );
+  
+  try {
+    switch (format) {
+      case 'markdown':
+        // Roher Markdown-Text als Plain Text
+        await navigator.clipboard.writeText(interpolated);
+        break;
+        
+      case 'html-styled':
+        // Rich Text (HTML) mit Formatierung - für Word, E-Mail, etc.
+        const htmlWithStyles = renderMarkdownSync(interpolated);
+        const styledHtml = extractStyledHTML(htmlWithStyles);
+        
+        // Kopiere als Rich Text (HTML + Plain Text Fallback)
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': new Blob([styledHtml], { type: 'text/html' }),
+            'text/plain': new Blob([interpolated], { type: 'text/plain' })
+          })
+        ]);
+        break;
+        
+      case 'html-plain':
+        // HTML ohne Styles - übernimmt Ziel-Styling
+        const plainHtml = renderMarkdownSync(interpolated);
+        const unstyled = extractPlainHTML(plainHtml);
+        
+        // Kopiere als Rich Text ohne inline-styles
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': new Blob([unstyled], { type: 'text/html' }),
+            'text/plain': new Blob([interpolated], { type: 'text/plain' })
+          })
+        ]);
+        break;
+    }
+    
+    showCopyFeedback(format);
+  } catch (err) {
+    console.error('Kopieren fehlgeschlagen:', err);
+    alert('Kopieren fehlgeschlagen. Bitte manuell kopieren.');
+  }
+}
+
+const openDropdown = ref<string | null>(null);
+
+function showCopyFeedback(format: CopyFormat) {
+  const messages = {
+    'markdown': 'Markdown in Zwischenablage kopiert',
+    'html-styled': 'HTML mit Formatierung kopiert',
+    'html-plain': 'HTML ohne Formatierung kopiert'
+  };
+  
+  showSuccess(messages[format], {
+    title: 'Erfolgreich kopiert',
+    duration: 3000
+  });
+}
+
+function toggleDropdown(fieldName: string) {
+  openDropdown.value = openDropdown.value === fieldName ? null : fieldName;
+}
+
+function closeDropdown() {
+  openDropdown.value = null;
+}
+
+async function copyAndClose(fieldName: string, format: CopyFormat) {
+  await copyToClipboard(fieldName, format);
+  closeDropdown();
+}
+
 // Watch für automatische Initialisierung bei Node-Wechsel
 watch(currentNode, () => {
   if (currentNode.value?.type === NodeType.TASK) {
     initializeFormData();
   }
 }, { immediate: true });
+
+// Click-Outside Handler für Dropdown
+function handleClickOutside(event: MouseEvent) {
+  const target = event.target as HTMLElement;
+  if (!target.closest('.copy-dropdown')) {
+    closeDropdown();
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
 </script>
 
 <template>
@@ -195,12 +324,63 @@ watch(currentNode, () => {
               :key="field.name"
               class="ct-form-group"
             >
-              <label class="ct-form-label">
-                {{ field.label }}
-                <span v-if="field.required" class="required">*</span>
-              </label>
+              <!-- DISPLAY Field (Read-only mit Markdown + Copy Dropdown) -->
+              <div v-if="field.type === 'display'" class="display-field">
+                <div class="display-field-header">
+                  <label class="ct-form-label">{{ field.label }}</label>
+                  <div class="copy-dropdown">
+                    <button 
+                      type="button"
+                      class="copy-btn"
+                      @click="toggleDropdown(field.name)"
+                      title="Kopierformat auswählen"
+                    >
+                      📋 Kopieren ▼
+                    </button>
+                    <div 
+                      v-if="openDropdown === field.name"
+                      class="copy-options"
+                      @click.stop
+                    >
+                      <button 
+                        type="button"
+                        @click="copyAndClose(field.name, 'markdown')"
+                        title="Roher Markdown-Text"
+                      >
+                        📝 Markdown
+                      </button>
+                      <button 
+                        type="button"
+                        @click="copyAndClose(field.name, 'html-styled')"
+                        title="HTML mit Styling für Word"
+                      >
+                        🎨 HTML + Style
+                      </button>
+                      <button 
+                        type="button"
+                        @click="copyAndClose(field.name, 'html-plain')"
+                        title="HTML ohne Styling"
+                      >
+                        📄 HTML
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div 
+                  class="display-field-content"
+                  v-html="getInterpolatedFieldValue(field)"
+                  @click="closeDropdown"
+                ></div>
+              </div>
 
-              <!-- Text inputs -->
+              <!-- Regular Fields -->
+              <template v-else>
+                <label class="ct-form-label">
+                  {{ field.label }}
+                  <span v-if="field.required" class="required">*</span>
+                </label>
+
+                <!-- Text inputs -->
               <input
                 v-if="['text', 'email', 'tel', 'url', 'date', 'datetime-local', 'time', 'color'].includes(field.type)"
                 v-model="formData[field.name]"
@@ -301,6 +481,7 @@ watch(currentNode, () => {
                 :multiple="field.multiple"
                 :required="field.required"
               />
+              </template>
             </div>
 
             <div class="form-actions">
@@ -563,6 +744,154 @@ watch(currentNode, () => {
 
 .step-description a:hover {
   text-decoration: underline;
+}
+
+/* DISPLAY Field Styling */
+.display-field {
+  margin-bottom: 1.5rem;
+}
+
+.display-field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.display-field-header .ct-form-label {
+  margin-bottom: 0;
+}
+
+/* Copy Dropdown */
+.copy-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.copy-btn {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  background: #2196f3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.copy-btn:hover {
+  background: #1976d2;
+}
+
+.copy-btn:active {
+  transform: scale(0.98);
+}
+
+.copy-options {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.25rem);
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 180px;
+  animation: dropdownSlide 0.2s ease-out;
+}
+
+@keyframes dropdownSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.copy-options button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.625rem 1rem;
+  text-align: left;
+  background: white;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background 0.15s;
+}
+
+.copy-options button:hover {
+  background: #f5f5f5;
+}
+
+.copy-options button:active {
+  background: #e8e8e8;
+}
+
+.copy-options button:not(:last-child) {
+  border-bottom: 1px solid #eee;
+}
+
+.copy-options button:first-child {
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+}
+
+.copy-options button:last-child {
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+.display-field-content {
+  padding: 1rem;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  color: #333;
+  line-height: 1.6;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Markdown-Styling innerhalb DISPLAY-Felder */
+.display-field-content h1,
+.display-field-content h2,
+.display-field-content h3 {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: #1976d2;
+}
+
+.display-field-content p {
+  margin: 0.5rem 0;
+}
+
+.display-field-content ul,
+.display-field-content ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.display-field-content strong {
+  color: #1976d2;
+  font-weight: 600;
+}
+
+.display-field-content code {
+  background: #fff;
+  padding: 2px 4px;
+  border-radius: 3px;
+  color: #d32f2f;
 }
 
 .task-form {

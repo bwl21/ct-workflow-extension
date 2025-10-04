@@ -90,7 +90,7 @@ Bitte vervollständigen Sie Ihre **persönlichen Daten** für die Mitgliederaufn
     },
   } as WorkflowNode;
 
-  // Task 2: Address (mit Markdown, Template-Interpolation und langem Text)
+  // Task 2: Address (mit DISPLAY-Feld, Markdown, Template-Interpolation)
   const taskAddress = {
     id: 'node-address',
     type: NodeType.TASK,
@@ -99,20 +99,31 @@ Bitte vervollständigen Sie Ihre **persönlichen Daten** für die Mitgliederaufn
 
 Vielen Dank für Ihre Registrierung! 
 
-### Ihre bisherigen Angaben:
-- **Name:** {{firstName}} {{lastName}}
-- **E-Mail:** {{email}}
-
-### Nächster Schritt: Adressdaten
-
 Um Ihre Mitgliedschaft zu vervollständigen, benötigen wir noch Ihre **Adressdaten**. 
 
-> Diese Informationen werden vertraulich behandelt und nur für administrative Zwecke verwendet.
-
-Bitte geben Sie Ihre vollständige Adresse ein:`,
+> Diese Informationen werden vertraulich behandelt und nur für administrative Zwecke verwendet.`,
     position: { x: 500, y: 200 },
     data: {
       fields: [
+        {
+          name: 'memberInfo',
+          label: 'Ihre bisherigen Angaben',
+          type: FieldType.DISPLAY,
+          required: false,
+          defaultValue: `### Erfasste Mitgliedsdaten
+
+| Feld | Wert |
+|------|------|
+| **Name** | {{firstName}} {{lastName}} |
+| **E-Mail** | {{email}} |
+
+> Diese Daten wurden bereits erfasst und können für die Kommunikation verwendet werden.
+
+**Nächste Schritte:**
+1. Adressdaten eingeben
+2. Daten überprüfen
+3. Mitgliedschaft bestätigen`,
+        },
         {
           name: 'street',
           label: 'Straße',
