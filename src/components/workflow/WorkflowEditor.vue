@@ -21,6 +21,7 @@ const showEdgeEditor = ref(false);
 const selectedEdgeId = ref<string | null>(null);
 const showJsonModal = ref(false);
 const workflowJson = ref('');
+const jsonError = ref('');
 const showEdgeList = ref(false);
 const highlightedEdgeId = ref<string | null>(null);
 const edgeRefs = ref<Record<string, any>>({});
@@ -283,12 +284,45 @@ function moveOutputDown(index: number) {
 function showWorkflowJson() {
   if (!currentWorkflow.value) return;
   workflowJson.value = JSON.stringify(currentWorkflow.value, null, 2);
+  jsonError.value = '';
   showJsonModal.value = true;
 }
 
 function copyJsonToClipboard() {
   navigator.clipboard.writeText(workflowJson.value);
   alert('JSON in Zwischenablage kopiert!');
+}
+
+function saveJsonChanges() {
+  if (!currentWorkflow.value) return;
+  
+  try {
+    const parsed = JSON.parse(workflowJson.value);
+    
+    // Validate structure
+    if (!parsed.id || !parsed.name || !parsed.definition) {
+      jsonError.value = 'Ungültige Workflow-Struktur: id, name und definition sind erforderlich';
+      return;
+    }
+    
+    if (!parsed.definition.nodes || !Array.isArray(parsed.definition.nodes)) {
+      jsonError.value = 'Ungültige Workflow-Struktur: definition.nodes muss ein Array sein';
+      return;
+    }
+    
+    if (!parsed.definition.edges || !Array.isArray(parsed.definition.edges)) {
+      jsonError.value = 'Ungültige Workflow-Struktur: definition.edges muss ein Array sein';
+      return;
+    }
+    
+    // Update workflow
+    workflowStore.updateWorkflow(currentWorkflow.value.id, parsed);
+    jsonError.value = '';
+    showJsonModal.value = false;
+    
+  } catch (error) {
+    jsonError.value = `JSON-Fehler: ${error instanceof Error ? error.message : 'Ungültiges JSON'}`;
+  }
 }
 
 function getAvailableFields() {
@@ -1161,10 +1195,19 @@ function applyAutoLayout() {
           </div>
         </div>
         <div class="json-container">
-          <pre><code>{{ workflowJson }}</code></pre>
+          <textarea 
+            v-model="workflowJson" 
+            class="json-editor"
+            spellcheck="false"
+            @input="jsonError = ''"
+          ></textarea>
+          <div v-if="jsonError" class="json-error">
+            ⚠️ {{ jsonError }}
+          </div>
         </div>
         <div class="modal-actions">
-          <button class="ct-btn ct-btn-primary" @click="showJsonModal = false">Schließen</button>
+          <button class="ct-btn ct-btn-secondary" @click="showJsonModal = false">Abbrechen</button>
+          <button class="ct-btn ct-btn-primary" @click="saveJsonChanges">Speichern</button>
         </div>
       </div>
     </div>
@@ -1362,6 +1405,31 @@ function applyAutoLayout() {
   max-height: 60vh;
   overflow: auto;
   margin-bottom: 1rem;
+}
+
+.json-editor {
+  width: 100%;
+  min-height: 50vh;
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  padding: 0.5rem;
+  border: none;
+  background: transparent;
+  resize: vertical;
+  outline: none;
+  color: #333;
+  tab-size: 2;
+}
+
+.json-error {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: #fee;
+  border: 1px solid #fcc;
+  border-radius: 4px;
+  color: #c33;
+  font-size: 0.875rem;
 }
 
 .json-container pre {
