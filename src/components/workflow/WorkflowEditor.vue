@@ -5,6 +5,7 @@ import VueFlowDiagram from './VueFlowDiagram.vue';
 import SimpleRulesEditor from './SimpleRulesEditor.vue';
 import EdgeEditor from './EdgeEditor.vue';
 import PlaceholderDropdown from './PlaceholderDropdown.vue';
+import JsonEditor from '@/components/common/JsonEditor.vue';
 import type { WorkflowNode, WorkflowEdge } from '@/types/workflow.types';
 import { NodeType, FieldType } from '@/types/workflow.types';
 import { calculateAutoLayout } from '@/utils/auto-layout';
@@ -293,8 +294,17 @@ function copyJsonToClipboard() {
   alert('JSON in Zwischenablage kopiert!');
 }
 
+function handleJsonError(error: string | null) {
+  jsonError.value = error || '';
+}
+
 function saveJsonChanges() {
   if (!currentWorkflow.value) return;
+  
+  // Check if there's a JSON parsing error
+  if (jsonError.value) {
+    return;
+  }
   
   try {
     const parsed = JSON.parse(workflowJson.value);
@@ -1195,19 +1205,24 @@ function applyAutoLayout() {
           </div>
         </div>
         <div class="json-container">
-          <textarea 
-            v-model="workflowJson" 
-            class="json-editor"
-            spellcheck="false"
-            @input="jsonError = ''"
-          ></textarea>
-          <div v-if="jsonError" class="json-error">
+          <JsonEditor
+            v-model="workflowJson"
+            height="60vh"
+            @error="handleJsonError"
+          />
+          <div v-if="jsonError && !jsonError.startsWith('JSON')" class="json-validation-error">
             ⚠️ {{ jsonError }}
           </div>
         </div>
         <div class="modal-actions">
           <button class="ct-btn ct-btn-secondary" @click="showJsonModal = false">Abbrechen</button>
-          <button class="ct-btn ct-btn-primary" @click="saveJsonChanges">Speichern</button>
+          <button 
+            class="ct-btn ct-btn-primary" 
+            @click="saveJsonChanges"
+            :disabled="!!jsonError"
+          >
+            Speichern
+          </button>
         </div>
       </div>
     </div>
@@ -1398,31 +1413,10 @@ function applyAutoLayout() {
 }
 
 .json-container {
-  background: #f5f5f5;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 1rem;
-  max-height: 60vh;
-  overflow: auto;
   margin-bottom: 1rem;
 }
 
-.json-editor {
-  width: 100%;
-  min-height: 50vh;
-  font-family: 'Courier New', monospace;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  padding: 0.5rem;
-  border: none;
-  background: transparent;
-  resize: vertical;
-  outline: none;
-  color: #333;
-  tab-size: 2;
-}
-
-.json-error {
+.json-validation-error {
   margin-top: 0.5rem;
   padding: 0.75rem;
   background: #fee;
@@ -1430,19 +1424,6 @@ function applyAutoLayout() {
   border-radius: 4px;
   color: #c33;
   font-size: 0.875rem;
-}
-
-.json-container pre {
-  margin: 0;
-  font-family: 'Courier New', monospace;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-
-.json-container code {
-  color: #333;
 }
 
 .modal-actions {
