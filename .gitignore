@@ -43,3 +43,4 @@ temp/
 
 # Release packages (keep directory structure)
 releases/*.zip
+.env

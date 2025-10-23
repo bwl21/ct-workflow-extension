@@ -5,6 +5,7 @@ import VueFlowDiagram from './VueFlowDiagram.vue';
 import SimpleRulesEditor from './SimpleRulesEditor.vue';
 import EdgeEditor from './EdgeEditor.vue';
 import PlaceholderDropdown from './PlaceholderDropdown.vue';
+import JsonEditor from '@/components/common/JsonEditor.vue';
 import type { WorkflowNode, WorkflowEdge } from '@/types/workflow.types';
 import { NodeType, FieldType } from '@/types/workflow.types';
 import { calculateAutoLayout } from '@/utils/auto-layout';
@@ -21,6 +22,7 @@ const showEdgeEditor = ref(false);
 const selectedEdgeId = ref<string | null>(null);
 const showJsonModal = ref(false);
 const workflowJson = ref('');
+const jsonError = ref('');
 const showEdgeList = ref(false);
 const highlightedEdgeId = ref<string | null>(null);
 const edgeRefs = ref<Record<string, any>>({});
@@ -283,12 +285,54 @@ function moveOutputDown(index: number) {
 function showWorkflowJson() {
   if (!currentWorkflow.value) return;
   workflowJson.value = JSON.stringify(currentWorkflow.value, null, 2);
+  jsonError.value = '';
   showJsonModal.value = true;
 }
 
 function copyJsonToClipboard() {
   navigator.clipboard.writeText(workflowJson.value);
   alert('JSON in Zwischenablage kopiert!');
+}
+
+function handleJsonError(error: string | null) {
+  jsonError.value = error || '';
+}
+
+function saveJsonChanges() {
+  if (!currentWorkflow.value) return;
+  
+  // Check if there's a JSON parsing error
+  if (jsonError.value) {
+    return;
+  }
+  
+  try {
+    const parsed = JSON.parse(workflowJson.value);
+    
+    // Validate structure
+    if (!parsed.id || !parsed.name || !parsed.definition) {
+      jsonError.value = 'Ungültige Workflow-Struktur: id, name und definition sind erforderlich';
+      return;
+    }
+    
+    if (!parsed.definition.nodes || !Array.isArray(parsed.definition.nodes)) {
+      jsonError.value = 'Ungültige Workflow-Struktur: definition.nodes muss ein Array sein';
+      return;
+    }
+    
+    if (!parsed.definition.edges || !Array.isArray(parsed.definition.edges)) {
+      jsonError.value = 'Ungültige Workflow-Struktur: definition.edges muss ein Array sein';
+      return;
+    }
+    
+    // Update workflow
+    workflowStore.updateWorkflow(currentWorkflow.value.id, parsed);
+    jsonError.value = '';
+    showJsonModal.value = false;
+    
+  } catch (error) {
+    jsonError.value = `JSON-Fehler: ${error instanceof Error ? error.message : 'Ungültiges JSON'}`;
+  }
 }
 
 function getAvailableFields() {
@@ -1161,10 +1205,24 @@ function applyAutoLayout() {
           </div>
         </div>
         <div class="json-container">
-          <pre><code>{{ workflowJson }}</code></pre>
+          <JsonEditor
+            v-model="workflowJson"
+            height="60vh"
+            @error="handleJsonError"
+          />
+          <div v-if="jsonError && !jsonError.startsWith('JSON')" class="json-validation-error">
+            ⚠️ {{ jsonError }}
+          </div>
         </div>
         <div class="modal-actions">
-          <button class="ct-btn ct-btn-primary" @click="showJsonModal = false">Schließen</button>
+          <button class="ct-btn ct-btn-secondary" @click="showJsonModal = false">Abbrechen</button>
+          <button 
+            class="ct-btn ct-btn-primary" 
+            @click="saveJsonChanges"
+            :disabled="!!jsonError"
+          >
+            Speichern
+          </button>
         </div>
       </div>
     </div>
@@ -1355,26 +1413,17 @@ function applyAutoLayout() {
 }
 
 .json-container {
-  background: #f5f5f5;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 1rem;
-  max-height: 60vh;
-  overflow: auto;
   margin-bottom: 1rem;
 }
 
-.json-container pre {
-  margin: 0;
-  font-family: 'Courier New', monospace;
+.json-validation-error {
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  background: #fee;
+  border: 1px solid #fcc;
+  border-radius: 4px;
+  color: #c33;
   font-size: 0.875rem;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-
-.json-container code {
-  color: #333;
 }
 
 .modal-actions {
