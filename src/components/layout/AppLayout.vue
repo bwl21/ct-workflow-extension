@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/user';
 import { UserRole } from '@/types/user.types';
@@ -40,6 +40,11 @@ function toggleRole() {
   const newRole = isAdmin.value ? UserRole.USER : UserRole.ADMIN;
   userStore.setUserRole(newRole);
 }
+
+onMounted(async () => {
+  // Load current user from ChurchTools
+  await userStore.fetchCurrentUser();
+});
 </script>
 
 <template>

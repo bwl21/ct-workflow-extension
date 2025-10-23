@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import { churchtoolsClient } from '@churchtools/churchtools-client';
 import type { User, WorkflowPermission } from '@/types/user.types';
 import { UserRole } from '@/types/user.types';
 
@@ -51,6 +52,26 @@ export const useUserStore = defineStore('user', () => {
   function setUserRole(role: UserRole) {
     currentUser.value.role = role;
     saveToLocalStorage();
+  }
+
+  async function fetchCurrentUser() {
+    try {
+      const response: any = await churchtoolsClient.get('/whoami');
+      const ctUser = response.data || response;
+      
+      currentUser.value = {
+        id: ctUser.id?.toString() || 'unknown',
+        name: [ctUser.firstName, ctUser.lastName].filter(Boolean).join(' ') || 'Benutzer',
+        email: ctUser.email || '',
+        role: ctUser.securityLevelId === 1 ? UserRole.ADMIN : UserRole.USER,
+      };
+      
+      saveToLocalStorage();
+      return true;
+    } catch (error) {
+      console.error('Failed to fetch current user:', error);
+      return false;
+    }
   }
 
   function grantPermission(workflowId: string, userId: string, canExecute = true, canView = true) {
@@ -133,6 +154,7 @@ export const useUserStore = defineStore('user', () => {
     // Actions
     setUser,
     setUserRole,
+    fetchCurrentUser,
     grantPermission,
     revokePermission,
     grantAllWorkflows,
