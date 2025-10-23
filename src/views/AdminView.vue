@@ -40,10 +40,28 @@ function createWorkflow() {
 function openEditModal(workflow: Workflow) {
   selectedWorkflow.value = workflow;
   workflowStore.setCurrentWorkflow(workflow.id);
+  workflowStore.createSnapshot(workflow.id);
   showEditModal.value = true;
 }
 
-function closeEditModal() {
+async function saveAndClose() {
+  if (!selectedWorkflow.value) return;
+  
+  try {
+    await workflowStore.saveToBackend(selectedWorkflow.value.id);
+    workflowStore.clearSnapshot();
+    showEditModal.value = false;
+    selectedWorkflow.value = null;
+    workflowStore.setCurrentWorkflow(null);
+  } catch (error) {
+    console.error('Failed to save workflow:', error);
+    alert('Fehler beim Speichern des Workflows im Backend.');
+  }
+}
+
+function cancelEdit() {
+  workflowStore.revertToSnapshot();
+  workflowStore.clearSnapshot();
   showEditModal.value = false;
   selectedWorkflow.value = null;
   workflowStore.setCurrentWorkflow(null);
@@ -226,17 +244,20 @@ function formatDate(date: Date): string {
     </div>
 
     <!-- Edit Modal -->
-    <div v-if="showEditModal" class="ct-modal-overlay" @click.self="closeEditModal">
+    <div v-if="showEditModal" class="ct-modal-overlay" @click.self="cancelEdit">
       <div class="ct-modal ct-modal-xl">
         <div class="ct-modal-header">
           <h3 class="ct-modal-title">Workflow bearbeiten: {{ selectedWorkflow?.name }}</h3>
-          <button class="ct-btn-close" @click="closeEditModal"></button>
+          <button class="ct-btn-close" @click="cancelEdit"></button>
         </div>
         <div class="ct-modal-body editor-modal-body">
           <WorkflowEditor />
         </div>
         <div class="ct-modal-footer">
-          <button class="ct-btn ct-btn-primary" @click="closeEditModal">Fertig</button>
+          <button class="ct-btn ct-btn-secondary" @click="cancelEdit">Abbrechen</button>
+          <button class="ct-btn ct-btn-primary" @click="saveAndClose" :disabled="workflowStore.isSaving">
+            {{ workflowStore.isSaving ? 'Speichert...' : 'Speichern & Schließen' }}
+          </button>
         </div>
       </div>
     </div>

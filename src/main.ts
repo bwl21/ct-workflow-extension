@@ -3,6 +3,7 @@ import './style.css';
 import App from './App.vue';
 import { createPinia } from 'pinia';
 import { churchtoolsClient } from '@churchtools/churchtools-client';
+import { VueQueryPlugin } from '@tanstack/vue-query';
 import { router } from './router';
 import { initializeActions } from './actions';
 import { setupDemoData } from './utils/demo-setup';
@@ -21,6 +22,16 @@ const app = createApp(App);
 const pinia = createPinia();
 
 app.use(pinia);
+app.use(VueQueryPlugin, {
+    queryClientConfig: {
+        defaultOptions: {
+            queries: {
+                staleTime: 20 * 1000, // 20 Sekunden
+                gcTime: 10 * 60 * 1000, // 10 Minuten
+            },
+        },
+    },
+});
 app.use(router);
 
 // Initialize action plugins

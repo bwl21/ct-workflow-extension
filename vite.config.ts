@@ -12,6 +12,18 @@ export default ({ mode }) => {
             dedupe: ['vue'],
             alias: {
                 '@': '/src',
+                '@churchtools/utils': '/workspaces/churchtools/frontend-packages/utils/dist/churchtools-utils.js',
+            },
+            conditions: ['ct-mono-repo', 'import', 'module', 'browser', 'default'],
+        },
+        build: {
+            rollupOptions: {
+                external: [
+                    /^@churchtools\//,
+                    /^@tanstack\//,
+                    'pinia',
+                    'vue',
+                ],
             },
         },
         server: {

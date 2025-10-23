@@ -19,6 +19,10 @@ export interface WorkflowDefinition {
   edges: WorkflowEdge[];
   metadata: {
     description: string;
+    localId?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    createdBy?: string;
   };
 }
 

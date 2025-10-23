@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, markRaw } from 'vue';
 import { VueFlow, useVueFlow, Panel } from '@vue-flow/core';
 import type { Node, Edge, NodeChange, EdgeChange } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
@@ -152,13 +152,13 @@ watch(
   { deep: true, immediate: true }
 );
 
-// Node types mapping
+// Node types mapping (use markRaw to prevent reactivity overhead)
 const nodeTypes = {
-  start: StartNode as any,
-  task: TaskNode as any,
-  action: ActionNode as any,
-  decision: DecisionNode as any,
-  end: EndNode as any,
+  start: markRaw(StartNode) as any,
+  task: markRaw(TaskNode) as any,
+  action: markRaw(ActionNode) as any,
+  decision: markRaw(DecisionNode) as any,
+  end: markRaw(EndNode) as any,
 };
 
 // Handle node click (only for selection, not editing)
