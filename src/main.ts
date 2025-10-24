@@ -6,7 +6,6 @@ import { churchtoolsClient } from '@churchtools/churchtools-client';
 import { VueQueryPlugin } from '@tanstack/vue-query';
 import { router } from './router';
 import { initializeActions } from './actions';
-import { setupDemoData } from './utils/demo-setup';
 
 declare const window: Window &
     typeof globalThis & {
@@ -43,9 +42,6 @@ app.use(router);
 
 // Initialize action plugins
 initializeActions();
-
-// Setup demo data
-setupDemoData();
 
 app.mount('#app');
 

@@ -116,10 +116,6 @@ async function deleteWorkflow() {
   selectedWorkflow.value = null;
 }
 
-function resetDemoData() {
-  alert('Demo-Daten sind mit Backend-First Architektur nicht mehr verfügbar. Erstelle Workflows manuell.');
-}
-
 function formatDate(date: Date): string {
   return new Date(date).toLocaleDateString('de-DE', {
     day: '2-digit',
@@ -141,14 +137,9 @@ function formatDate(date: Date): string {
             <h2 class="ct-h4 ct-mb-0">Workflow-Verwaltung</h2>
             <p class="ct-text-muted ct-mb-0">Erstelle und verwalte Workflows für deine Organisation</p>
           </div>
-          <div style="display: flex; gap: 0.5rem;">
-            <button class="ct-btn ct-btn-secondary" @click="resetDemoData" title="Demo-Daten neu laden">
-              🔄 Demo-Daten
-            </button>
-            <button class="ct-btn ct-btn-primary" @click="openCreateModal">
-              <span class="icon">+</span> Neuer Workflow
-            </button>
-          </div>
+          <button class="ct-btn ct-btn-primary" @click="openCreateModal">
+            <span class="icon">+</span> Neuer Workflow
+          </button>
         </div>
       </div>
     </div>
