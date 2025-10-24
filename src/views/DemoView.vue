@@ -10,9 +10,13 @@ const workflowStore = useWorkflowStore();
 const activeTab = ref<'editor' | 'executor'>('editor');
 
 function createExampleWorkflow() {
+  // Demo setup is deprecated with Backend-First architecture
+  alert('Demo-Daten sind nicht mehr verfügbar. Erstelle Workflows manuell in der Admin-Ansicht.');
+  return;
+  
   // Create example workflow
   const workflow: Workflow = {
-    id: generateId(),
+    id: 0 as any, // generateId(),
     name: 'Mitgliederaufnahme',
     description: 'Beispiel-Workflow für die Aufnahme neuer Mitglieder',
     category: 'Mitgliederverwaltung',
@@ -178,12 +182,7 @@ function createExampleWorkflow() {
 }
 
 function clearAllWorkflows() {
-  if (confirm('Alle Workflows wirklich löschen?')) {
-    workflowStore.workflows = [];
-    workflowStore.setCurrentWorkflow(null);
-    localStorage.removeItem('workflows');
-    alert('Alle Workflows gelöscht!');
-  }
+  alert('Diese Funktion ist mit Backend-First Architektur nicht mehr verfügbar.');
 }
 
 function generateId(): string {
@@ -191,8 +190,7 @@ function generateId(): string {
 }
 
 onMounted(() => {
-  // Load workflows from localStorage
-  workflowStore.loadFromLocalStorage();
+  // Workflows are now loaded from backend automatically
 });
 </script>
 

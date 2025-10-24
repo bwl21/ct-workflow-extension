@@ -13,14 +13,14 @@ const showExecutor = ref(false);
 
 const availableWorkflows = computed(() => {
   return workflowStore.workflows.filter((workflow) =>
-    userStore.canExecuteWorkflow(workflow.id)
+    userStore.canExecuteWorkflow(workflow.id.toString())
   );
 });
 
 const currentExecution = computed(() => executionStore.currentExecution);
 
-function startWorkflow(workflowId: string) {
-  executionStore.startExecution(workflowId, userStore.currentUser.id);
+function startWorkflow(workflowId: number) {
+  executionStore.startExecution(workflowId.toString(), userStore.currentUser.id);
   showExecutor.value = true;
 }
 

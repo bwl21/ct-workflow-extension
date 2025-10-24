@@ -46,20 +46,13 @@ const nodeTypes = [
   { type: NodeType.END, label: 'Ende', icon: '✓' },
 ];
 
-function createNewWorkflow() {
+async function createNewWorkflow() {
   if (!workflowName.value) return;
 
-  const workflow = workflowStore.createWorkflow(workflowName.value, workflowDescription.value);
+  await workflowStore.createWorkflow(workflowName.value, workflowDescription.value);
 
-  // Add default start node
-  const startNode: WorkflowNode = {
-    id: generateId(),
-    type: NodeType.START,
-    label: 'Start',
-    position: { x: 100, y: 200 },
-    data: {},
-  };
-  workflowStore.addNode(workflow.id, startNode);
+  // Note: Start node should be added in the editor after workflow is created
+  // For now, workflows are created empty and nodes are added in the editor
 
   workflowName.value = '';
   workflowDescription.value = '';
@@ -239,11 +232,7 @@ function onOutputDragOver(event: DragEvent, index: number) {
 
 function onOutputDragEnd() {
   draggedOutputIndex.value = null;
-  
-  // Force update to trigger VueFlow re-render after drag
-  if (currentWorkflow.value) {
-    workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
-  }
+  // Changes are saved when clicking "Save & Close" in AdminView
 }
 
 function moveFieldUp(index: number) {
@@ -263,11 +252,7 @@ function moveOutputUp(index: number) {
   if (!selectedNode.value || !selectedNode.value.data.outputs || index === 0) return;
   const outputs = selectedNode.value.data.outputs;
   [outputs[index - 1], outputs[index]] = [outputs[index], outputs[index - 1]];
-  
-  // Force update to trigger VueFlow re-render
-  if (currentWorkflow.value) {
-    workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
-  }
+  // Changes are saved when clicking "Save & Close" in AdminView
 }
 
 function moveOutputDown(index: number) {
@@ -275,11 +260,7 @@ function moveOutputDown(index: number) {
   const outputs = selectedNode.value.data.outputs;
   if (index === outputs.length - 1) return;
   [outputs[index], outputs[index + 1]] = [outputs[index + 1], outputs[index]];
-  
-  // Force update to trigger VueFlow re-render
-  if (currentWorkflow.value) {
-    workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
-  }
+  // Changes are saved when clicking "Save & Close" in AdminView
 }
 
 function showWorkflowJson() {
@@ -325,8 +306,8 @@ function saveJsonChanges() {
       return;
     }
     
-    // Update workflow
-    workflowStore.updateWorkflow(currentWorkflow.value.id, parsed);
+    // Update workflow locally (saved when clicking "Save & Close")
+    Object.assign(currentWorkflow.value, parsed);
     jsonError.value = '';
     showJsonModal.value = false;
     
@@ -401,7 +382,7 @@ function saveEdge(edge: WorkflowEdge) {
   const edgeIndex = currentWorkflow.value.definition.edges.findIndex(e => e.id === edge.id);
   if (edgeIndex !== -1) {
     currentWorkflow.value.definition.edges[edgeIndex] = edge;
-    workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
+    // Changes are saved when clicking "Save & Close" in AdminView
   }
   
   showEdgeEditor.value = false;
@@ -621,7 +602,7 @@ function handleNodeClick(nodeId: string) {
 function handleNodesChange(updatedNodes: WorkflowNode[]) {
   if (!currentWorkflow.value) return;
   currentWorkflow.value.definition.nodes = updatedNodes;
-  workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
+  // Changes are saved when clicking "Save & Close" in AdminView
 }
 
 function handleEdgeAdd(connection: { source: string; target: string; sourceHandle?: string }) {
@@ -653,7 +634,7 @@ function handleEdgeUpdate(update: { id: string; source: string; target: string; 
       target: update.target,
       sourceHandle: update.sourceHandle,
     };
-    workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
+    // Changes are saved when clicking "Save & Close" in AdminView
   }
 }
 
@@ -675,7 +656,7 @@ function applyAutoLayout() {
   );
   
   currentWorkflow.value.definition.nodes = layoutedNodes;
-  workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
+  // Changes are saved when clicking "Save & Close" in AdminView
 }
 </script>
 

@@ -187,11 +187,9 @@ Um Ihre Mitgliedschaft zu vervollständigen, benötigen wir noch Ihre **Adressda
     },
   ];
 
-  // Add to store using the new structure
-  workflowStore.addWorkflow(workflow);
-
-  // Grant permission to current user
-  userStore.grantPermission(workflow.id, userStore.currentUser.id, true, true);
+  // Note: Demo setup is deprecated with Backend-First architecture
+  // Workflows should be created via AdminView which uses backend
+  console.warn('Demo setup is deprecated - use AdminView to create workflows');
 
   console.info('✓ Demo workflow created and permissions granted');
 }

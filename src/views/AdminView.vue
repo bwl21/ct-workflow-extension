@@ -1,16 +1,37 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useWorkflowStore } from '@/stores/workflow';
 import WorkflowEditor from '@/components/workflow/WorkflowEditor.vue';
 import type { Workflow } from '@/types/workflow.types';
-import { setupDemoData } from '@/utils/demo-setup';
 
 const workflowStore = useWorkflowStore();
+
+// Check for unsaved snapshot on mount
+onMounted(() => {
+  const snapshot = workflowStore.loadSnapshotFromLocalStorage();
+  if (snapshot) {
+    const workflow = workflowStore.getWorkflowById(snapshot.workflowId);
+    if (workflow) {
+      const message = `Es gibt ungespeicherte Änderungen am Workflow "${workflow.name}" vom ${new Date(snapshot.timestamp).toLocaleString('de-DE')}.\n\nMöchtest du diese wiederherstellen?`;
+      if (confirm(message)) {
+        workflowStore.restoreSnapshot(snapshot);
+        selectedWorkflow.value = workflow;
+        showEditModal.value = true;
+      } else {
+        workflowStore.clearSnapshot();
+      }
+    } else {
+      // Workflow doesn't exist anymore, clear snapshot
+      workflowStore.clearSnapshot();
+    }
+  }
+});
 
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
 const showDeleteModal = ref(false);
 const selectedWorkflow = ref<Workflow | null>(null);
+const isSaving = ref(false);
 
 const newWorkflow = ref({
   name: '',
@@ -25,16 +46,23 @@ function openCreateModal() {
   showCreateModal.value = true;
 }
 
-function createWorkflow() {
+async function createWorkflow() {
   if (!newWorkflow.value.name) return;
 
-  workflowStore.createWorkflow(
-    newWorkflow.value.name, 
-    newWorkflow.value.description,
-    newWorkflow.value.category
-  );
-  showCreateModal.value = false;
-  newWorkflow.value = { name: '', description: '', category: 'Allgemein' };
+  console.log('[AdminView] Creating workflow:', newWorkflow.value);
+  try {
+    await workflowStore.createWorkflow(
+      newWorkflow.value.name, 
+      newWorkflow.value.description,
+      newWorkflow.value.category
+    );
+    console.log('[AdminView] Workflow created successfully');
+    showCreateModal.value = false;
+    newWorkflow.value = { name: '', description: '', category: 'Allgemein' };
+  } catch (error) {
+    console.error('[AdminView] Failed to create workflow:', error);
+    alert('Fehler beim Erstellen des Workflows: ' + (error instanceof Error ? error.message : 'Unbekannter Fehler'));
+  }
 }
 
 function openEditModal(workflow: Workflow) {
@@ -47,15 +75,23 @@ function openEditModal(workflow: Workflow) {
 async function saveAndClose() {
   if (!selectedWorkflow.value) return;
   
+  isSaving.value = true;
   try {
-    await workflowStore.saveToBackend(selectedWorkflow.value.id);
+    const workflow = workflowStore.getWorkflowById(selectedWorkflow.value.id);
+    if (!workflow) throw new Error('Workflow not found');
+    
+    // Update workflow in backend
+    await workflowStore.updateWorkflow(workflow.id, workflow);
+    
     workflowStore.clearSnapshot();
     showEditModal.value = false;
     selectedWorkflow.value = null;
     workflowStore.setCurrentWorkflow(null);
   } catch (error) {
     console.error('Failed to save workflow:', error);
-    alert('Fehler beim Speichern des Workflows im Backend.');
+    alert('Fehler beim Speichern des Workflows.');
+  } finally {
+    isSaving.value = false;
   }
 }
 
@@ -72,19 +108,16 @@ function openDeleteModal(workflow: Workflow) {
   showDeleteModal.value = true;
 }
 
-function deleteWorkflow() {
+async function deleteWorkflow() {
   if (!selectedWorkflow.value) return;
 
-  workflowStore.deleteWorkflow(selectedWorkflow.value.id);
+  await workflowStore.deleteWorkflow(selectedWorkflow.value.id);
   showDeleteModal.value = false;
   selectedWorkflow.value = null;
 }
 
 function resetDemoData() {
-  if (confirm('Alle Workflows löschen und Demo-Daten neu laden?')) {
-    workflowStore.clearAllWorkflows();
-    setupDemoData();
-  }
+  alert('Demo-Daten sind mit Backend-First Architektur nicht mehr verfügbar. Erstelle Workflows manuell.');
 }
 
 function formatDate(date: Date): string {
@@ -137,18 +170,19 @@ function formatDate(date: Date): string {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="workflow in workflows" :key="workflow.id">
+              <tr v-for="workflow in workflows" :key="workflow.id" :class="{ 'corrupted-workflow': workflow.isCorrupted }">
                 <td>
                   <strong>{{ workflow.name }}</strong>
+                  <span v-if="workflow.isCorrupted" class="ct-badge ct-badge-danger ct-ml-2" title="Dieser Workflow ist fehlerhaft">⚠️ Fehlerhaft</span>
                 </td>
                 <td>
-                  <span class="ct-badge ct-badge-secondary">{{ workflow.category }}</span>
+                  <span class="ct-badge" :class="workflow.isCorrupted ? 'ct-badge-danger' : 'ct-badge-secondary'">{{ workflow.category }}</span>
                 </td>
                 <td>
-                  <span class="description-text">{{ workflow.description || '-' }}</span>
+                  <span class="description-text">{{ workflow.isCorrupted ? workflow.corruptionReason : (workflow.description || '-') }}</span>
                 </td>
                 <td>
-                  <span class="ct-badge ct-badge-primary">{{ workflow.definition.nodes.length }} Schritte</span>
+                  <span class="ct-badge ct-badge-primary">{{ workflow.definition?.nodes?.length || 0 }} Schritte</span>
                 </td>
                 <td>
                   <small class="ct-text-muted">{{ formatDate(workflow.createdAt) }}</small>
@@ -159,6 +193,7 @@ function formatDate(date: Date): string {
                 <td class="actions-column">
                   <div class="action-buttons">
                     <button
+                      v-if="!workflow.isCorrupted"
                       class="ct-btn ct-btn-sm ct-btn-secondary"
                       title="Bearbeiten"
                       @click="openEditModal(workflow)"
@@ -166,8 +201,9 @@ function formatDate(date: Date): string {
                       ✏️
                     </button>
                     <button
-                      class="ct-btn ct-btn-sm ct-btn-secondary"
-                      title="Löschen"
+                      class="ct-btn ct-btn-sm"
+                      :class="workflow.isCorrupted ? 'ct-btn-danger' : 'ct-btn-secondary'"
+                      :title="workflow.isCorrupted ? 'Fehlerhaften Workflow löschen' : 'Löschen'"
                       @click="openDeleteModal(workflow)"
                     >
                       🗑️
@@ -255,8 +291,8 @@ function formatDate(date: Date): string {
         </div>
         <div class="ct-modal-footer">
           <button class="ct-btn ct-btn-secondary" @click="cancelEdit">Abbrechen</button>
-          <button class="ct-btn ct-btn-primary" @click="saveAndClose" :disabled="workflowStore.isSaving">
-            {{ workflowStore.isSaving ? 'Speichert...' : 'Speichern & Schließen' }}
+          <button class="ct-btn ct-btn-primary" @click="saveAndClose" :disabled="isSaving">
+            {{ isSaving ? 'Speichert...' : 'Speichern & Schließen' }}
           </button>
         </div>
       </div>
@@ -362,5 +398,14 @@ function formatDate(date: Date): string {
   .description-text {
     max-width: 150px;
   }
+}
+
+/* Corrupted workflow styling */
+.corrupted-workflow {
+  background-color: #fff3cd !important;
+}
+
+.corrupted-workflow:hover {
+  background-color: #ffe69c !important;
 }
 </style>

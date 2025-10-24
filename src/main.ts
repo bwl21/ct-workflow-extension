@@ -18,6 +18,13 @@ declare const window: Window &
 const baseUrl = window.settings?.base_url ?? import.meta.env.VITE_BASE_URL;
 churchtoolsClient.setBaseUrl(baseUrl);
 
+// Login BEFORE mounting the app in development mode
+const username = import.meta.env.VITE_USERNAME;
+const password = import.meta.env.VITE_PASSWORD;
+if (import.meta.env.MODE === 'development' && username && password) {
+    await churchtoolsClient.post('/login', { username, password });
+}
+
 const app = createApp(App);
 const pinia = createPinia();
 
@@ -41,12 +48,6 @@ initializeActions();
 setupDemoData();
 
 app.mount('#app');
-
-const username = import.meta.env.VITE_USERNAME;
-const password = import.meta.env.VITE_PASSWORD;
-if (import.meta.env.MODE === 'development' && username && password) {
-    await churchtoolsClient.post('/login', { username, password });
-}
 
 const KEY = import.meta.env.VITE_KEY;
 export { KEY };

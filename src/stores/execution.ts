@@ -23,7 +23,7 @@ export const useExecutionStore = defineStore('execution', () => {
   const currentNode = computed(() => {
     if (!currentExecution.value) return null;
     const workflowStore = useWorkflowStore();
-    const workflow = workflowStore.getWorkflowById(currentExecution.value.workflowId);
+    const workflow = workflowStore.getWorkflowById(parseInt(currentExecution.value.workflowId));
     if (!workflow) return null;
     return (
       workflow.definition.nodes.find((n) => n.id === currentExecution.value!.currentNodeId) || null
@@ -45,7 +45,7 @@ export const useExecutionStore = defineStore('execution', () => {
   // Actions
   function startExecution(workflowId: string, userId: string = 'demo-user'): WorkflowExecution {
     const workflowStore = useWorkflowStore();
-    const workflow = workflowStore.getWorkflowById(workflowId);
+    const workflow = workflowStore.getWorkflowById(parseInt(workflowId));
 
     if (!workflow) {
       throw new Error('Workflow not found');
@@ -96,7 +96,7 @@ export const useExecutionStore = defineStore('execution', () => {
     }
 
     const workflowStore = useWorkflowStore();
-    const workflow = workflowStore.getWorkflowById(execution.workflowId);
+    const workflow = workflowStore.getWorkflowById(parseInt(execution.workflowId));
     if (!workflow) {
       throw new Error('Workflow not found');
     }
@@ -138,7 +138,7 @@ export const useExecutionStore = defineStore('execution', () => {
     if (!execution) return;
 
     const workflowStore = useWorkflowStore();
-    const workflow = workflowStore.getWorkflowById(execution.workflowId);
+    const workflow = workflowStore.getWorkflowById(parseInt(execution.workflowId));
     if (!workflow) return;
 
     const currentNode = workflow.definition.nodes.find((n) => n.id === execution.currentNodeId);
