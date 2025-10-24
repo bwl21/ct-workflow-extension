@@ -59,7 +59,14 @@ Ein vollständiges Template für die Entwicklung von ChurchTools Extensions mit 
    npm install
    ```
 
-4. **Development starten:**
+4. **Git Hooks installieren:**
+   ```bash
+   ./scripts/setup-hooks.sh
+   ```
+   
+   Dies installiert einen Pre-Commit Hook, der automatisch `npm run build` vor jedem Commit ausführt und fehlerhafte Commits verhindert.
+
+5. **Development starten:**
    ```bash
    npm run dev
    ```
@@ -158,6 +165,22 @@ npm run prettier
 # Linting
 npm run lint
 ```
+
+### Git Hooks
+
+Das Projekt verwendet Git Hooks zur Qualitätssicherung:
+
+**Pre-Commit Hook:**
+- Führt automatisch `npm run build` vor jedem Commit aus
+- Verhindert Commits mit Build-Fehlern
+- Stellt sicher, dass nur funktionierender Code committed wird
+
+**Installation:**
+```bash
+./scripts/setup-hooks.sh
+```
+
+**Hinweis:** Nach dem Klonen des Repositories oder in neuen Gitpod-Umgebungen muss das Setup-Script einmalig ausgeführt werden.
 
 ## Deployment
 
