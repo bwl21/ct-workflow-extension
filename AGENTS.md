@@ -56,6 +56,38 @@ Nur folgende Dateien dürfen im Root-Verzeichnis bleiben:
 - Vue 3 Composition API bevorzugen
 - Konsistente Namenskonventionen einhalten
 
+### Dependencies Management
+**KRITISCH:** Beim Hinzufügen von Imports MUSS sofort die entsprechende Dependency hinzugefügt werden:
+
+1. **Vor dem Commit prüfen:**
+   - Alle neuen `import` Statements identifizieren
+   - Für jeden externen Import: `package.json` prüfen, ob Dependency existiert
+   - Fehlende Dependencies sofort hinzufügen
+
+2. **Workflow für neue Dependencies:**
+   ```bash
+   # 1. Code mit Import schreiben
+   # 2. Dependency hinzufügen
+   npm install <package-name>
+   # 3. Build testen
+   npm run build
+   # 4. Erst dann committen
+   ```
+
+3. **Vor jedem Commit MUSS ausgeführt werden:**
+   - `npm run build` - muss erfolgreich durchlaufen
+   - Nur wenn Build erfolgreich → committen
+
+**Beispiel-Fehler (NIEMALS so):**
+- Code mit `import { useQuery } from '@tanstack/vue-query'` schreiben
+- Committen ohne `@tanstack/vue-query` in package.json
+
+**Richtig:**
+- Code mit Import schreiben
+- `npm install @tanstack/vue-query` ausführen
+- `npm run build` testen
+- Dann committen (inkl. package.json + package-lock.json)
+
 ### Commit-Nachrichten
 - Co-authored-by: Ona <no-reply@ona.com> hinzufügen
 - Konventionen des Repositories befolgen
@@ -64,5 +96,6 @@ Nur folgende Dateien dürfen im Root-Verzeichnis bleiben:
 - Auch wenn einmal Erlaubnis erteilt wurde, gilt das NICHT für weitere Commits
 
 ### Testing
-- Änderungen vor Commit bauen und testen
-- `npm run build` muss erfolgreich sein
+- **ZWINGEND:** Vor JEDEM Commit `npm run build` ausführen
+- Build muss erfolgreich sein, sonst NICHT committen
+- Bei Build-Fehlern: Ursache beheben, dann erneut testen
