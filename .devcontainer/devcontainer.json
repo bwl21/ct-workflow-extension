@@ -63,6 +63,6 @@
 	// Forward Vite development server port
 	"forwardPorts": [5173],
 	
-	// Automatically install dependencies after container creation
-	"postCreateCommand": "npm install"
+	// Automatically install dependencies and setup git hooks after container creation
+	"postCreateCommand": "npm install && ./scripts/setup-hooks.sh"
 }
