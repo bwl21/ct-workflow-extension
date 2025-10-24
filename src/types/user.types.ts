@@ -15,7 +15,7 @@ export enum UserRole {
 }
 
 export interface WorkflowPermission {
-  workflowId: string;
+  workflowId: number; // Backend Workflow-ID
   userId: string;
   canExecute: boolean;
   canView: boolean;

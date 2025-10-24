@@ -7,7 +7,7 @@ import { evaluateRules } from '@/utils/rule-evaluator';
 
 export const useExecutionStore = defineStore('execution', () => {
   // State - Executions grouped by workflow
-  const executionsByWorkflow = ref<Map<string, WorkflowExecution[]>>(new Map());
+  const executionsByWorkflow = ref<Map<number, WorkflowExecution[]>>(new Map());
   const currentExecutionId = ref<string | null>(null);
 
   // Getters
@@ -30,7 +30,7 @@ export const useExecutionStore = defineStore('execution', () => {
     );
   });
 
-  const getWorkflowExecutions = (workflowId: string): WorkflowExecution[] => {
+  const getWorkflowExecutions = (workflowId: number): WorkflowExecution[] => {
     return executionsByWorkflow.value.get(workflowId) || [];
   };
 
@@ -43,7 +43,7 @@ export const useExecutionStore = defineStore('execution', () => {
   });
 
   // Actions
-  function startExecution(workflowId: string, userId: string = 'demo-user'): WorkflowExecution {
+  function startExecution(workflowId: number, userId: string = 'demo-user'): WorkflowExecution {
     const workflowStore = useWorkflowStore();
     const workflow = workflowStore.getWorkflowById(workflowId);
 

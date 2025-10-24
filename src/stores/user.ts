@@ -18,7 +18,7 @@ export const useUserStore = defineStore('user', () => {
   // Getters
   const isAdmin = computed(() => currentUser.value.role === UserRole.ADMIN);
 
-  const canExecuteWorkflow = (workflowId: string): boolean => {
+  const canExecuteWorkflow = (workflowId: number): boolean => {
     if (isAdmin.value) return true;
 
     const permission = permissions.value.find(
@@ -28,7 +28,7 @@ export const useUserStore = defineStore('user', () => {
     return permission?.canExecute ?? false;
   };
 
-  const canViewWorkflow = (workflowId: string): boolean => {
+  const canViewWorkflow = (workflowId: number): boolean => {
     if (isAdmin.value) return true;
 
     const permission = permissions.value.find(
@@ -38,7 +38,7 @@ export const useUserStore = defineStore('user', () => {
     return permission?.canView ?? false;
   };
 
-  const getExecutableWorkflows = (workflowIds: string[]): string[] => {
+  const getExecutableWorkflows = (workflowIds: number[]): number[] => {
     if (isAdmin.value) return workflowIds;
 
     return workflowIds.filter((id) => canExecuteWorkflow(id));
@@ -74,7 +74,7 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  function grantPermission(workflowId: string, userId: string, canExecute = true, canView = true) {
+  function grantPermission(workflowId: number, userId: string, canExecute = true, canView = true) {
     const existing = permissions.value.find(
       (p) => p.workflowId === workflowId && p.userId === userId
     );
@@ -94,7 +94,7 @@ export const useUserStore = defineStore('user', () => {
     saveToLocalStorage();
   }
 
-  function revokePermission(workflowId: string, userId: string) {
+  function revokePermission(workflowId: number, userId: string) {
     const index = permissions.value.findIndex(
       (p) => p.workflowId === workflowId && p.userId === userId
     );

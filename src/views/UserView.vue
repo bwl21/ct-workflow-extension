@@ -19,7 +19,7 @@ const availableWorkflows = computed(() => {
 
 const currentExecution = computed(() => executionStore.currentExecution);
 
-function startWorkflow(workflowId: string) {
+function startWorkflow(workflowId: number) {
   executionStore.startExecution(workflowId, userStore.currentUser.id);
   showExecutor.value = true;
 }

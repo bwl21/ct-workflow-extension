@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useWorkflowStore } from '@/stores/workflow';
 import WorkflowEditor from '@/components/workflow/WorkflowEditor.vue';
 import type { Workflow } from '@/types/workflow.types';
-import { setupDemoData } from '@/utils/demo-setup';
 
 const workflowStore = useWorkflowStore();
+
+// Load workflows on mount
+onMounted(async () => {
+  await workflowStore.loadWorkflows();
+});
+const isSaving = ref(false);
 
 const showCreateModal = ref(false);
 const showEditModal = ref(false);
@@ -25,16 +30,21 @@ function openCreateModal() {
   showCreateModal.value = true;
 }
 
-function createWorkflow() {
+async function createWorkflow() {
   if (!newWorkflow.value.name) return;
 
-  workflowStore.createWorkflow(
-    newWorkflow.value.name, 
-    newWorkflow.value.description,
-    newWorkflow.value.category
-  );
-  showCreateModal.value = false;
-  newWorkflow.value = { name: '', description: '', category: 'Allgemein' };
+  try {
+    await workflowStore.createWorkflow(
+      newWorkflow.value.name, 
+      newWorkflow.value.description,
+      newWorkflow.value.category
+    );
+    showCreateModal.value = false;
+    newWorkflow.value = { name: '', description: '', category: 'Allgemein' };
+  } catch (error) {
+    console.error('Failed to create workflow:', error);
+    alert('Fehler beim Erstellen des Workflows.');
+  }
 }
 
 function openEditModal(workflow: Workflow) {
@@ -43,10 +53,31 @@ function openEditModal(workflow: Workflow) {
   showEditModal.value = true;
 }
 
-function closeEditModal() {
+async function saveAndClose() {
+  if (!selectedWorkflow.value) return;
+  
+  isSaving.value = true;
+  try {
+    // Save current workflow to backend
+    await workflowStore.saveWorkflow(selectedWorkflow.value.id);
+    
+    showEditModal.value = false;
+    selectedWorkflow.value = null;
+    workflowStore.setCurrentWorkflow(null);
+  } catch (error) {
+    console.error('Failed to save workflow:', error);
+    alert('Fehler beim Speichern des Workflows.');
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+function cancelEdit() {
   showEditModal.value = false;
   selectedWorkflow.value = null;
   workflowStore.setCurrentWorkflow(null);
+  // Reload to discard changes
+  workflowStore.loadWorkflows();
 }
 
 function openDeleteModal(workflow: Workflow) {
@@ -54,20 +85,20 @@ function openDeleteModal(workflow: Workflow) {
   showDeleteModal.value = true;
 }
 
-function deleteWorkflow() {
+async function deleteWorkflow() {
   if (!selectedWorkflow.value) return;
 
-  workflowStore.deleteWorkflow(selectedWorkflow.value.id);
-  showDeleteModal.value = false;
-  selectedWorkflow.value = null;
-}
-
-function resetDemoData() {
-  if (confirm('Alle Workflows löschen und Demo-Daten neu laden?')) {
-    workflowStore.clearAllWorkflows();
-    setupDemoData();
+  try {
+    await workflowStore.deleteWorkflow(selectedWorkflow.value.id);
+    showDeleteModal.value = false;
+    selectedWorkflow.value = null;
+  } catch (error) {
+    console.error('Failed to delete workflow:', error);
+    alert('Fehler beim Löschen des Workflows.');
   }
 }
+
+
 
 function formatDate(date: Date): string {
   return new Date(date).toLocaleDateString('de-DE', {
@@ -91,9 +122,6 @@ function formatDate(date: Date): string {
             <p class="ct-text-muted ct-mb-0">Erstelle und verwalte Workflows für deine Organisation</p>
           </div>
           <div style="display: flex; gap: 0.5rem;">
-            <button class="ct-btn ct-btn-secondary" @click="resetDemoData" title="Demo-Daten neu laden">
-              🔄 Demo-Daten
-            </button>
             <button class="ct-btn ct-btn-primary" @click="openCreateModal">
               <span class="icon">+</span> Neuer Workflow
             </button>
@@ -226,17 +254,20 @@ function formatDate(date: Date): string {
     </div>
 
     <!-- Edit Modal -->
-    <div v-if="showEditModal" class="ct-modal-overlay" @click.self="closeEditModal">
+    <div v-if="showEditModal" class="ct-modal-overlay" @click.self="cancelEdit">
       <div class="ct-modal ct-modal-xl">
         <div class="ct-modal-header">
           <h3 class="ct-modal-title">Workflow bearbeiten: {{ selectedWorkflow?.name }}</h3>
-          <button class="ct-btn-close" @click="closeEditModal"></button>
+          <button class="ct-btn-close" @click="cancelEdit"></button>
         </div>
         <div class="ct-modal-body editor-modal-body">
           <WorkflowEditor />
         </div>
         <div class="ct-modal-footer">
-          <button class="ct-btn ct-btn-primary" @click="closeEditModal">Fertig</button>
+          <button class="ct-btn ct-btn-secondary" @click="cancelEdit" :disabled="isSaving">Abbrechen</button>
+          <button class="ct-btn ct-btn-primary" @click="saveAndClose" :disabled="isSaving">
+            {{ isSaving ? 'Speichert...' : 'Speichern & Schließen' }}
+          </button>
         </div>
       </div>
     </div>

@@ -74,7 +74,7 @@ import type { WorkflowExecution } from '@/types/workflow.types';
 import { ExecutionStatus } from '@/types/workflow.types';
 
 const props = defineProps<{
-  workflowId: string;
+  workflowId: number;
 }>();
 
 const executionStore = useExecutionStore();

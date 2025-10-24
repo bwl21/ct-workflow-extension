@@ -46,20 +46,13 @@ const nodeTypes = [
   { type: NodeType.END, label: 'Ende', icon: '✓' },
 ];
 
-function createNewWorkflow() {
+async function createNewWorkflow() {
   if (!workflowName.value) return;
 
-  const workflow = workflowStore.createWorkflow(workflowName.value, workflowDescription.value);
+  await workflowStore.createWorkflow(workflowName.value, workflowDescription.value);
 
-  // Add default start node
-  const startNode: WorkflowNode = {
-    id: generateId(),
-    type: NodeType.START,
-    label: 'Start',
-    position: { x: 100, y: 200 },
-    data: {},
-  };
-  workflowStore.addNode(workflow.id, startNode);
+  // Note: Start node should be added in AdminView after workflow is created
+  // For now, workflows are created empty
 
   workflowName.value = '';
   workflowDescription.value = '';
@@ -750,6 +743,7 @@ function applyAutoLayout() {
           :definition="currentWorkflow.definition" 
           :readonly="false"
           @node-click="handleNodeClick"
+          @node-delete="deleteNode"
           @edge-click="editEdge"
           @nodes-change="handleNodesChange"
           @edge-add="handleEdgeAdd"

@@ -83,7 +83,7 @@ function initializeFormData() {
   });
 }
 
-function startWorkflow(workflowId: string) {
+function startWorkflow(workflowId: number) {
   executionStore.startExecution(workflowId);
   initializeFormData();
 }

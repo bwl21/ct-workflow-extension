@@ -1,11 +1,17 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { Workflow, WorkflowNode, WorkflowEdge } from '@/types/workflow.types';
+import { useWorkflows } from '@/composables/useWorkflows';
 
 export const useWorkflowStore = defineStore('workflow', () => {
-  // State
+  // Backend workflows composable
+  const backendWorkflows = useWorkflows();
+  
+  // State - Simple ref array (like before, but with backend sync)
   const workflows = ref<Workflow[]>([]);
-  const currentWorkflowId = ref<string | null>(null);
+  const currentWorkflowId = ref<number | null>(null);
+  const isLoading = ref(false);
+  const isSaving = ref(false);
 
   // Getters
   const currentWorkflow = computed(() => {
@@ -13,94 +19,174 @@ export const useWorkflowStore = defineStore('workflow', () => {
     return workflows.value.find((w) => w.id === currentWorkflowId.value) || null;
   });
 
-  const getWorkflowById = (id: string) => {
+  const getWorkflowById = (id: number) => {
     return workflows.value.find((w) => w.id === id);
   };
 
-  // Actions
-  function createWorkflow(name: string, description: string, category: string = 'Allgemein'): Workflow {
-    const workflow: Workflow = {
-      id: generateId(),
-      name,
-      description,
-      category,
-      definition: {
-        version: '1.0.0',
-        nodes: [],
-        edges: [],
+  // Load workflows from backend into ref array
+  async function loadWorkflows() {
+    isLoading.value = true;
+    try {
+      console.log('[workflowStore] Loading workflows from backend');
+      
+      // Wait for backend query with longer timeout
+      let attempts = 0;
+      while (backendWorkflows.isLoading.value && attempts < 100) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+      
+      // Wait a bit more for data to populate
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      const backendData = backendWorkflows.workflows.value || [];
+      console.log('[workflowStore] Backend data:', backendData);
+      
+      // Convert backend data to Workflow format
+      workflows.value = backendData.map((cat: any): Workflow => {
+        // Check for corrupted workflows
+        if (!cat.data || typeof cat.data !== 'object') {
+          console.error(`[workflowStore] Corrupted workflow: ${cat.name} (ID: ${cat.id})`);
+          return {
+            id: cat.id,
+            name: cat.name,
+            description: 'Fehlerhafter Workflow',
+            category: 'Fehler',
+            definition: { version: '1.0.0', nodes: [], edges: [], metadata: {} },
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            createdBy: 'unknown',
+            isCorrupted: true,
+            corruptionReason: 'Ungültige oder fehlende Definition'
+          };
+        }
+        
+        const definition = cat.data;
+        if (!definition.nodes) definition.nodes = [];
+        if (!definition.edges) definition.edges = [];
+        if (!definition.metadata) definition.metadata = {};
+        
+        return {
+          id: cat.id,
+          name: cat.name,
+          description: definition.metadata?.description || '',
+          category: definition.metadata?.category || 'Allgemein',
+          definition,
+          createdAt: new Date(definition.metadata?.createdAt || Date.now()),
+          updatedAt: new Date(definition.metadata?.updatedAt || Date.now()),
+          createdBy: definition.metadata?.createdBy || 'unknown'
+        };
+      });
+      
+      console.log('[workflowStore] Loaded workflows:', workflows.value);
+    } catch (error) {
+      console.error('[workflowStore] Failed to load workflows:', error);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // Save workflow to backend
+  async function saveWorkflow(id: number) {
+    const workflow = getWorkflowById(id);
+    if (!workflow) throw new Error('Workflow not found');
+    
+    isSaving.value = true;
+    try {
+      console.log('[workflowStore] Saving workflow to backend:', workflow);
+      
+      const definition = {
+        ...workflow.definition,
         metadata: {
-          description,
-        },
-      },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      createdBy: 'demo-user', // TODO: Get from user store
+          ...workflow.definition.metadata,
+          description: workflow.description,
+          category: workflow.category,
+          updatedAt: new Date().toISOString()
+        }
+      };
+      
+      await backendWorkflows.updateWorkflow(id, definition);
+      console.log('[workflowStore] Workflow saved successfully');
+      
+      // Reload from backend
+      await loadWorkflows();
+    } catch (error) {
+      console.error('[workflowStore] Failed to save workflow:', error);
+      throw error;
+    } finally {
+      isSaving.value = false;
+    }
+  }
+
+  // Actions
+  async function createWorkflow(name: string, description: string, category: string = 'Allgemein') {
+    const definition = {
+      version: '1.0.0',
+      nodes: [],
+      edges: [],
+      metadata: {
+        description,
+        category,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: 'current-user'
+      }
     };
 
-    workflows.value.push(workflow);
-    currentWorkflowId.value = workflow.id;
-
-    // Speichern in localStorage
-    saveToLocalStorage();
-
-    return workflow;
+    await backendWorkflows.createWorkflow(name, definition);
+    await loadWorkflows();
   }
 
   function addWorkflow(workflow: Workflow) {
     workflows.value.push(workflow);
-    saveToLocalStorage();
+    // Note: Call saveWorkflow() manually to persist to backend
   }
 
   function getAllWorkflows(): Workflow[] {
     return workflows.value;
   }
 
-  function updateWorkflow(id: string, updates: Partial<Workflow>) {
+  function updateWorkflow(id: number, updates: Partial<Workflow>) {
     const workflow = getWorkflowById(id);
     if (workflow) {
       Object.assign(workflow, updates);
       workflow.updatedAt = new Date();
-      saveToLocalStorage();
+      // Note: Call saveWorkflow() manually to persist to backend
     }
   }
 
-  function deleteWorkflow(id: string) {
-    const index = workflows.value.findIndex((w) => w.id === id);
-    if (index > -1) {
-      workflows.value.splice(index, 1);
-      if (currentWorkflowId.value === id) {
-        currentWorkflowId.value = null;
-      }
-      saveToLocalStorage();
+  async function deleteWorkflow(id: number) {
+    await backendWorkflows.deleteWorkflow(id);
+    await loadWorkflows();
+    if (currentWorkflowId.value === id) {
+      currentWorkflowId.value = null;
     }
   }
 
-  function setCurrentWorkflow(id: string | null) {
+  function setCurrentWorkflow(id: number | null) {
     currentWorkflowId.value = id;
   }
 
-  function addNode(workflowId: string, node: WorkflowNode) {
+  function addNode(workflowId: number, node: WorkflowNode) {
     const workflow = getWorkflowById(workflowId);
     if (workflow) {
       workflow.definition.nodes.push(node);
       workflow.updatedAt = new Date();
-      saveToLocalStorage();
     }
   }
 
-  function updateNode(workflowId: string, nodeId: string, updates: Partial<WorkflowNode>) {
+  function updateNode(workflowId: number, nodeId: string, updates: Partial<WorkflowNode>) {
     const workflow = getWorkflowById(workflowId);
     if (workflow) {
       const node = workflow.definition.nodes.find((n) => n.id === nodeId);
       if (node) {
         Object.assign(node, updates);
         workflow.updatedAt = new Date();
-        saveToLocalStorage();
       }
     }
   }
 
-  function removeNode(workflowId: string, nodeId: string) {
+  function removeNode(workflowId: number, nodeId: string) {
     const workflow = getWorkflowById(workflowId);
     if (workflow) {
       // Remove node
@@ -115,118 +201,59 @@ export const useWorkflowStore = defineStore('workflow', () => {
       );
 
       workflow.updatedAt = new Date();
-      saveToLocalStorage();
     }
   }
 
-  function addEdge(workflowId: string, edge: WorkflowEdge) {
+  function addEdge(workflowId: number, edge: WorkflowEdge) {
     const workflow = getWorkflowById(workflowId);
     if (workflow) {
       workflow.definition.edges.push(edge);
       workflow.updatedAt = new Date();
-      saveToLocalStorage();
     }
   }
 
-  function removeEdge(workflowId: string, edgeId: string) {
+  function removeEdge(workflowId: number, edgeId: string) {
     const workflow = getWorkflowById(workflowId);
     if (workflow) {
       const index = workflow.definition.edges.findIndex((e) => e.id === edgeId);
       if (index > -1) {
         workflow.definition.edges.splice(index, 1);
         workflow.updatedAt = new Date();
-        saveToLocalStorage();
       }
     }
   }
 
-  // LocalStorage
-  function saveToLocalStorage() {
-    try {
-      localStorage.setItem('workflows', JSON.stringify(workflows.value));
-    } catch (error) {
-      console.error('Failed to save workflows to localStorage:', error);
-    }
-  }
-
-  function loadFromLocalStorage() {
-    try {
-      const stored = localStorage.getItem('workflows');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        // Convert date strings back to Date objects and migrate old structure
-        workflows.value = parsed.map((w: any) => {
-          // Migrate old structure to new V2 structure
-          if (!w.definition && (w.nodes || w.edges)) {
-            console.info('Migrating workflow to V2 structure:', w.name);
-            return {
-              ...w,
-              category: w.category || 'Allgemein',
-              definition: {
-                version: '1.0.0',
-                nodes: w.nodes || [],
-                edges: w.edges || [],
-                metadata: {
-                  description: w.description || '',
-                },
-              },
-              createdAt: new Date(w.createdAt),
-              updatedAt: new Date(w.updatedAt),
-            };
-          }
-          // Already V2 structure
-          return {
-            ...w,
-            category: w.category || 'Allgemein',
-            createdAt: new Date(w.createdAt),
-            updatedAt: new Date(w.updatedAt),
-          };
-        });
-        // Save migrated workflows
-        saveToLocalStorage();
-      }
-    } catch (error) {
-      console.error('Failed to load workflows from localStorage:', error);
-      // Clear corrupted data
-      localStorage.removeItem('workflows');
-    }
-  }
-
-  function clearAllWorkflows() {
-    workflows.value = [];
-    localStorage.removeItem('workflows');
-  }
-
-  // Initialize
-  loadFromLocalStorage();
+  // Don't load on init - let AdminView trigger it
+  // loadWorkflows();
 
   return {
     // State
     workflows,
     currentWorkflowId,
+    isLoading,
+    isSaving,
 
     // Getters
     currentWorkflow,
     getWorkflowById,
     getAllWorkflows,
 
-    // Actions
+    // Actions - Backend
+    loadWorkflows,
+    saveWorkflow,
     createWorkflow,
+    deleteWorkflow,
+    
+    // Actions - Local (Editor)
     addWorkflow,
     updateWorkflow,
-    deleteWorkflow,
     setCurrentWorkflow,
     addNode,
     updateNode,
     removeNode,
     addEdge,
     removeEdge,
-    loadFromLocalStorage,
-    clearAllWorkflows,
   };
 });
 
-// Helper
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
+
