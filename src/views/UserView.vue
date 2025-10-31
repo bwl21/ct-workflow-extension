@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useWorkflowStore } from '@/stores/workflow';
 import { useUserStore } from '@/stores/user';
 import { useExecutionStore } from '@/stores/execution';
@@ -11,6 +11,13 @@ const executionStore = useExecutionStore();
 
 const showExecutor = ref(false);
 
+// Load workflows on mount
+onMounted(async () => {
+  console.log('[UserView] Mounted, loading workflows...');
+  await workflowStore.loadWorkflows();
+  console.log('[UserView] Workflows loaded:', workflowStore.workflows.length);
+});
+
 const availableWorkflows = computed(() => {
   console.log('[UserView] Computing available workflows...');
   console.log('[UserView] Total workflows:', workflowStore.workflows.length);
@@ -19,6 +26,14 @@ const availableWorkflows = computed(() => {
   console.log('[UserView] Is admin:', userStore.isAdmin);
   console.log('[UserView] Permissions:', userStore.permissions);
   
+  // Expand permissions to see details
+  if (userStore.permissions.length > 0) {
+    console.log('[UserView] Permission details:');
+    userStore.permissions.forEach((perm, index) => {
+      console.log(`  [${index}]:`, perm);
+    });
+  }
+  
   const filtered = workflowStore.workflows.filter((workflow) => {
     const canExecute = userStore.canExecuteWorkflow(workflow.id);
     console.log(`[UserView] Workflow ${workflow.id} (${workflow.name}): canExecute=${canExecute}`);
@@ -26,6 +41,11 @@ const availableWorkflows = computed(() => {
   });
   
   console.log('[UserView] Available workflows:', filtered.length);
+  
+  if (workflowStore.workflows.length === 0) {
+    console.warn('[UserView] ⚠️ No workflows loaded! Check if workflows exist in ChurchTools.');
+  }
+  
   return filtered;
 });
 

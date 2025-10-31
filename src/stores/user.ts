@@ -88,10 +88,16 @@ export const useUserStore = defineStore('user', () => {
       console.log('[userStore] Fetching permissions from ChurchTools API...');
       const response: any = await churchtoolsClient.get('/permissions/global');
       const data = response.data || response;
+      
+      console.log('[userStore] Full API response:', data);
+      console.log('[userStore] Available modules:', Object.keys(data.data || {}));
+      
       const ctWorkflowPerms = data.data?.['ct-workflow'];
       
       if (!ctWorkflowPerms) {
         console.warn('[userStore] No ct-workflow permissions found in API response');
+        console.warn('[userStore] This means the user has no permissions for the ct-workflow module');
+        console.warn('[userStore] Admin needs to grant permissions in ChurchTools');
         return false;
       }
       
