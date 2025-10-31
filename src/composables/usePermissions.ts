@@ -13,7 +13,9 @@ export function usePermissions(userId: ComputedRef<string>) {
       const data = response.data || response;
       
       console.log('[usePermissions] Full API response:', data);
-      console.log('[usePermissions] Available modules:', Object.keys(data.data || {}));
+      console.log('[usePermissions] data.data:', data.data);
+      console.log('[usePermissions] typeof data.data:', typeof data.data);
+      console.log('[usePermissions] Available modules:', data.data ? Object.keys(data.data) : 'data.data is undefined');
       
       const ctWorkflowPerms = data.data?.['ct-workflow'];
       
