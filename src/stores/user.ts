@@ -98,6 +98,12 @@ export const useUserStore = defineStore('user', () => {
         console.warn('[userStore] No ct-workflow permissions found in API response');
         console.warn('[userStore] This means the user has no permissions for the ct-workflow module');
         console.warn('[userStore] Admin needs to grant permissions in ChurchTools');
+        
+        // Clear old permissions from LocalStorage
+        console.log('[userStore] Clearing old permissions from LocalStorage');
+        permissions.value = [];
+        saveToLocalStorage();
+        
         return false;
       }
       
