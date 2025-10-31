@@ -10,17 +10,23 @@ export function usePermissions(userId: ComputedRef<string>) {
     queryFn: async () => {
       console.log('[usePermissions] Fetching permissions from ChurchTools API...');
       const response: any = await churchtoolsClient.get('/permissions/global');
-      const data = response.data || response;
       
-      console.log('[usePermissions] Full API response:', data);
-      console.log('[usePermissions] data.data:', data.data);
-      console.log('[usePermissions] typeof data.data:', typeof data.data);
-      console.log('[usePermissions] Available modules:', data.data ? Object.keys(data.data) : 'data.data is undefined');
+      console.log('[usePermissions] Raw response:', response);
+      console.log('[usePermissions] response.data:', response.data);
+      console.log('[usePermissions] response.data.data:', response.data?.data);
       
-      const ctWorkflowPerms = data.data?.['ct-workflow'];
+      // ChurchTools API returns: { data: { ct-workflow: {...}, ... } }
+      const apiData = response.data || response;
+      const permissionsData = apiData.data || apiData;
+      
+      console.log('[usePermissions] Extracted permissions data:', permissionsData);
+      console.log('[usePermissions] Available modules:', Object.keys(permissionsData || {}));
+      
+      const ctWorkflowPerms = permissionsData?.['ct-workflow'];
+      console.log('[usePermissions] ct-workflow permissions:', JSON.stringify(ctWorkflowPerms, null, 2));
       
       if (!ctWorkflowPerms) {
-        console.warn('[usePermissions] No ct-workflow permissions found in API response');
+        console.warn('[usePermissions] No ct-workflow module found in API response');
         return [];
       }
       
@@ -29,6 +35,15 @@ export function usePermissions(userId: ComputedRef<string>) {
       // Konvertiere ChurchTools Permissions zu unserem Format
       const viewCategories = ctWorkflowPerms['view custom category'] || [];
       const createData = ctWorkflowPerms['create custom data'] || [];
+      
+      console.log('[usePermissions] view custom category:', viewCategories);
+      console.log('[usePermissions] create custom data:', createData);
+      
+      // Check if user has any permissions
+      if (viewCategories.length === 0 && createData.length === 0) {
+        console.warn('[usePermissions] User has no permissions for ct-workflow module');
+        return [];
+      }
       
       // Erstelle Permissions für jeden Workflow
       const permissions: WorkflowPermission[] = [];
