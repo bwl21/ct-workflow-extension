@@ -86,7 +86,7 @@ export const useUserStore = defineStore('user', () => {
   async function fetchPermissions() {
     try {
       console.log('[userStore] Fetching permissions from ChurchTools API...');
-      const response: any = await churchtoolsClient.get('/api/permissions/global');
+      const response: any = await churchtoolsClient.get('/permissions/global');
       const data = response.data || response;
       const ctWorkflowPerms = data.data?.['ct-workflow'];
       

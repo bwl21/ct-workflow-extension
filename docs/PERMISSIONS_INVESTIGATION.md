@@ -6,6 +6,8 @@
 
 **Endpoint:** `GET /api/permissions/global`
 
+**Wichtig:** Der `churchtoolsClient` fügt automatisch `/api` hinzu, daher im Code nur `/permissions/global` verwenden!
+
 **Response-Struktur:**
 ```json
 {
