@@ -74,6 +74,60 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  async function fetchPermissions() {
+    try {
+      console.log('[userStore] Fetching permissions from ChurchTools API...');
+      const response: any = await churchtoolsClient.get('/api/permissions/global');
+      const data = response.data || response;
+      const ctWorkflowPerms = data.data?.['ct-workflow'];
+      
+      if (!ctWorkflowPerms) {
+        console.warn('[userStore] No ct-workflow permissions found in API response');
+        return false;
+      }
+      
+      console.log('[userStore] ChurchTools permissions:', ctWorkflowPerms);
+      
+      // Konvertiere ChurchTools Permissions zu unserem Format
+      const viewCategories = ctWorkflowPerms['view custom category'] || [];
+      const createData = ctWorkflowPerms['create custom data'] || [];
+      
+      // Erstelle Permissions für jeden Workflow
+      const newPermissions: WorkflowPermission[] = [];
+      
+      // Alle sichtbaren Workflows
+      viewCategories.forEach((workflowId: number) => {
+        newPermissions.push({
+          workflowId,
+          userId: currentUser.value.id,
+          canView: true,
+          canExecute: createData.includes(workflowId),
+        });
+      });
+      
+      // Workflows die ausführbar sind, aber nicht in viewCategories (sollte nicht vorkommen)
+      createData.forEach((workflowId: number) => {
+        if (!viewCategories.includes(workflowId)) {
+          newPermissions.push({
+            workflowId,
+            userId: currentUser.value.id,
+            canView: true, // Implizit, wenn ausführbar
+            canExecute: true,
+          });
+        }
+      });
+      
+      permissions.value = newPermissions;
+      saveToLocalStorage();
+      
+      console.log('[userStore] Loaded permissions:', newPermissions);
+      return true;
+    } catch (error) {
+      console.error('[userStore] Failed to fetch permissions:', error);
+      return false;
+    }
+  }
+
   function grantPermission(workflowId: number, userId: string, canExecute = true, canView = true) {
     const existing = permissions.value.find(
       (p) => p.workflowId === workflowId && p.userId === userId
@@ -155,6 +209,7 @@ export const useUserStore = defineStore('user', () => {
     setUser,
     setUserRole,
     fetchCurrentUser,
+    fetchPermissions,
     grantPermission,
     revokePermission,
     grantAllWorkflows,

@@ -44,6 +44,9 @@ function toggleRole() {
 onMounted(async () => {
   // Load current user from ChurchTools
   await userStore.fetchCurrentUser();
+  
+  // Load permissions from ChurchTools
+  await userStore.fetchPermissions();
 });
 </script>
 
