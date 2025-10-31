@@ -19,11 +19,20 @@ export const useUserStore = defineStore('user', () => {
   const isAdmin = computed(() => currentUser.value.role === UserRole.ADMIN);
 
   const canExecuteWorkflow = (workflowId: number): boolean => {
-    if (isAdmin.value) return true;
+    console.log(`[userStore] canExecuteWorkflow(${workflowId})`);
+    console.log(`[userStore] isAdmin: ${isAdmin.value}`);
+    
+    if (isAdmin.value) {
+      console.log(`[userStore] → true (admin bypass)`);
+      return true;
+    }
 
     const permission = permissions.value.find(
       (p) => p.workflowId === workflowId && p.userId === currentUser.value.id
     );
+    
+    console.log(`[userStore] Found permission:`, permission);
+    console.log(`[userStore] → ${permission?.canExecute ?? false}`);
 
     return permission?.canExecute ?? false;
   };

@@ -12,9 +12,21 @@ const executionStore = useExecutionStore();
 const showExecutor = ref(false);
 
 const availableWorkflows = computed(() => {
-  return workflowStore.workflows.filter((workflow) =>
-    userStore.canExecuteWorkflow(workflow.id)
-  );
+  console.log('[UserView] Computing available workflows...');
+  console.log('[UserView] Total workflows:', workflowStore.workflows.length);
+  console.log('[UserView] Workflows:', workflowStore.workflows);
+  console.log('[UserView] Current user:', userStore.currentUser);
+  console.log('[UserView] Is admin:', userStore.isAdmin);
+  console.log('[UserView] Permissions:', userStore.permissions);
+  
+  const filtered = workflowStore.workflows.filter((workflow) => {
+    const canExecute = userStore.canExecuteWorkflow(workflow.id);
+    console.log(`[UserView] Workflow ${workflow.id} (${workflow.name}): canExecute=${canExecute}`);
+    return canExecute;
+  });
+  
+  console.log('[UserView] Available workflows:', filtered.length);
+  return filtered;
 });
 
 const currentExecution = computed(() => executionStore.currentExecution);
