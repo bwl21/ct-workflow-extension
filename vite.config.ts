@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import { fileURLToPath, URL } from 'url';
 // import eslintPlugin from 'vite-plugin-eslint';
 
 // https://vitejs.dev/config/
@@ -11,7 +12,7 @@ export default ({ mode }) => {
         resolve: {
             dedupe: ['vue'],
             alias: {
-                '@': '/src',
+                '@': fileURLToPath(new URL('./src', import.meta.url)),
             },
         },
         server: {

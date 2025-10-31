@@ -1,0 +1,17 @@
+#!/bin/bash
+# Pre-commit hook: Ensure build passes before commit
+
+echo "Running pre-commit checks..."
+
+# Run build
+echo "Building project..."
+npm run build
+
+if [ $? -ne 0 ]; then
+    echo "❌ Build failed! Commit aborted."
+    echo "Fix the build errors before committing."
+    exit 1
+fi
+
+echo "✅ Build successful. Proceeding with commit."
+exit 0

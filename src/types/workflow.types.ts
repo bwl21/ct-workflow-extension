@@ -3,7 +3,7 @@
  */
 
 export interface Workflow {
-  id: string;
+  id: number; // Backend-ID
   name: string;
   description: string;
   category: string;
@@ -11,14 +11,20 @@ export interface Workflow {
   createdAt: Date;
   updatedAt: Date;
   createdBy?: string;
+  isCorrupted?: boolean; // Marks workflows with invalid data
+  corruptionReason?: string; // Reason why workflow is corrupted
 }
 
 export interface WorkflowDefinition {
   version: string;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
-  metadata: {
-    description: string;
+  metadata?: {
+    description?: string;
+    category?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    createdBy?: string;
   };
 }
 
@@ -173,7 +179,7 @@ export enum ConditionOperator {
 
 export interface WorkflowExecution {
   id: string;
-  workflowId: string;
+  workflowId: number; // Backend Workflow-ID
   currentNodeId: string;
   context: ExecutionContext;
   history: StepHistory[];

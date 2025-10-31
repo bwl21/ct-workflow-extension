@@ -28,6 +28,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   nodeClick: [nodeId: string];
+  nodeDelete: [nodeId: string];
   edgeClick: [edgeId: string];
   nodesChange: [nodes: WorkflowNode[]];
   edgeAdd: [edge: { source: string; target: string; sourceHandle?: string }];
@@ -87,6 +88,7 @@ function convertNodes(): Node[] {
       },
       draggable: !props.readonly,
       selectable: !props.readonly,
+      deletable: !props.readonly,
       resizable: !props.readonly,
       class: props.currentNodeId === node.id ? 'active-node' : '',
     };
@@ -194,6 +196,13 @@ onConnect((connection) => {
 // Handle node position and dimension changes
 onNodesChange((changes: NodeChange[]) => {
   if (!props.readonly) {
+    // Handle node deletion
+    changes.forEach(change => {
+      if (change.type === 'remove' && 'id' in change) {
+        emit('nodeDelete', change.id);
+      }
+    });
+    
     const relevantChanges = changes.filter(c => 
       (c.type === 'position' && 'position' in c && c.position) ||
       (c.type === 'dimensions' && 'dimensions' in c && c.dimensions)
