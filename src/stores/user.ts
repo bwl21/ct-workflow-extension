@@ -203,10 +203,14 @@ export const useUserStore = defineStore('user', () => {
         currentUser.value = JSON.parse(storedUser);
       }
 
-      const storedPermissions = localStorage.getItem('permissions');
-      if (storedPermissions) {
-        permissions.value = JSON.parse(storedPermissions);
-      }
+      // DON'T load permissions from LocalStorage on init
+      // They will be loaded from backend via fetchPermissions()
+      // LocalStorage is only used as a cache AFTER backend fetch
+      
+      // const storedPermissions = localStorage.getItem('permissions');
+      // if (storedPermissions) {
+      //   permissions.value = JSON.parse(storedPermissions);
+      // }
     } catch (error) {
       console.error('Failed to load user data from localStorage:', error);
     }
