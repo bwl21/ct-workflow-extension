@@ -45,8 +45,8 @@ onMounted(async () => {
   // Load current user from ChurchTools
   await userStore.fetchCurrentUser();
   
-  // Load permissions from ChurchTools
-  await userStore.fetchPermissions();
+  // Permissions are automatically loaded via TanStack Query (usePermissions composable)
+  // No manual fetching needed - caching is handled by TanStack Query
 });
 </script>
 
