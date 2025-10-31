@@ -3,7 +3,8 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useWorkflowStore } from '@/stores/workflow';
 import { useExecutionStore } from '@/stores/execution';
 import VueFlowDiagram from './VueFlowDiagram.vue';
-import { NodeType, ExecutionStatus } from '@/types/workflow.types';
+import PersonSelector from '@/components/common/PersonSelector.vue';
+import { NodeType, ExecutionStatus, FieldType } from '@/types/workflow.types';
 import { interpolate } from '@/utils/template-interpolation';
 import { renderMarkdownSync } from '@/utils/markdown-renderer';
 import { extractStyledHTML, extractPlainHTML } from '@/utils/html-extractor';
@@ -379,6 +380,16 @@ onUnmounted(() => {
                   {{ field.label }}
                   <span v-if="field.required" class="required">*</span>
                 </label>
+
+                <!-- Person Selector -->
+                <PersonSelector
+                  v-if="field.type === FieldType.PERSON || field.type === FieldType.PERSON_MULTI"
+                  v-model="formData[field.name]"
+                  :multiple="field.type === FieldType.PERSON_MULTI"
+                  :required="field.required"
+                  :placeholder="field.placeholder"
+                  :filter="field.personFilter"
+                />
 
                 <!-- Text inputs -->
               <input

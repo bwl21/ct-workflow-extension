@@ -100,6 +100,12 @@ export interface FormField {
   // For FILE
   accept?: string;
   multiple?: boolean;
+  // For PERSON, PERSON_MULTI
+  personFilter?: {
+    groupIds?: number[];
+    statusIds?: number[];
+    campusIds?: number[];
+  };
 }
 
 export interface Condition {
@@ -142,6 +148,8 @@ export enum FieldType {
   COLOR = 'color',
   FILE = 'file',
   DISPLAY = 'display', // Read-only Informationsfeld mit Markdown + Interpolation
+  PERSON = 'person', // ChurchTools Person Einzelauswahl
+  PERSON_MULTI = 'person-multi', // ChurchTools Person Mehrfachauswahl
 }
 
 export enum ConditionOperator {

@@ -182,6 +182,23 @@ function updateFieldOptions(index: number, value: string) {
   field.options = value.split('\n').filter(opt => opt.trim() !== '');
 }
 
+function updatePersonFilter(index: number, filterType: 'groupIds' | 'statusIds' | 'campusIds', value: string) {
+  if (!selectedNode.value || !selectedNode.value.data.fields) return;
+  const field = selectedNode.value.data.fields[index];
+  
+  // Initialize personFilter if not exists
+  if (!field.personFilter) {
+    field.personFilter = {};
+  }
+  
+  // Parse comma-separated IDs
+  if (value.trim() === '') {
+    field.personFilter[filterType] = undefined;
+  } else {
+    field.personFilter[filterType] = value.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+  }
+}
+
 // Drag and Drop for field sorting
 const draggedFieldIndex = ref<number | null>(null);
 const draggedOutputIndex = ref<number | null>(null);
@@ -556,6 +573,8 @@ function getFieldTypeLabel(type: FieldType): string {
     [FieldType.COLOR]: 'Farbe',
     [FieldType.FILE]: 'Datei',
     [FieldType.DISPLAY]: 'Anzeige',
+    [FieldType.PERSON]: 'Person',
+    [FieldType.PERSON_MULTI]: 'Personen (Mehrfach)',
   };
   return labels[type] || type;
 }
@@ -923,6 +942,10 @@ function applyAutoLayout() {
                   <option :value="FieldType.FILE">Datei-Upload</option>
                   <option :value="FieldType.DISPLAY">📋 Anzeige (Read-only)</option>
                 </optgroup>
+                <optgroup label="ChurchTools">
+                  <option :value="FieldType.PERSON">👤 Person</option>
+                  <option :value="FieldType.PERSON_MULTI">👥 Personen (Mehrfach)</option>
+                </optgroup>
               </select>
               <label>
                 <input v-model="field.required" type="checkbox" />
@@ -994,6 +1017,44 @@ function applyAutoLayout() {
                 </div>
               </div>
               
+              <!-- Options for PERSON, PERSON_MULTI -->
+              <div v-if="[FieldType.PERSON, FieldType.PERSON_MULTI].includes(field.type)" class="person-filter-options">
+                <label class="ct-form-label">Filter (optional)</label>
+                <div class="ct-form-group">
+                  <label>Gruppen-IDs (kommagetrennt)</label>
+                  <input 
+                    :value="field.personFilter?.groupIds?.join(',') || ''"
+                    @input="updatePersonFilter(index, 'groupIds', ($event.target as HTMLInputElement).value)"
+                    type="text" 
+                    class="ct-form-control"
+                    placeholder="z.B. 1,2,3"
+                  />
+                  <small class="ct-form-text">Nur Personen aus diesen Gruppen anzeigen</small>
+                </div>
+                <div class="ct-form-group">
+                  <label>Status-IDs (kommagetrennt)</label>
+                  <input 
+                    :value="field.personFilter?.statusIds?.join(',') || ''"
+                    @input="updatePersonFilter(index, 'statusIds', ($event.target as HTMLInputElement).value)"
+                    type="text" 
+                    class="ct-form-control"
+                    placeholder="z.B. 1,2"
+                  />
+                  <small class="ct-form-text">Nur Personen mit diesen Status anzeigen</small>
+                </div>
+                <div class="ct-form-group">
+                  <label>Campus-IDs (kommagetrennt)</label>
+                  <input 
+                    :value="field.personFilter?.campusIds?.join(',') || ''"
+                    @input="updatePersonFilter(index, 'campusIds', ($event.target as HTMLInputElement).value)"
+                    type="text" 
+                    class="ct-form-control"
+                    placeholder="z.B. 1,2"
+                  />
+                  <small class="ct-form-text">Nur Personen von diesen Campus anzeigen</small>
+                </div>
+              </div>
+
               <!-- DISPLAY Field Content (Markdown + Interpolation) -->
               <div v-if="field.type === FieldType.DISPLAY" class="ct-form-group">
                 <div class="field-with-placeholder-btn">
