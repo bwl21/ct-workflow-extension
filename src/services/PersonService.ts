@@ -45,7 +45,7 @@ export class PersonService {
         queryParams.limit = params.limit;
       }
 
-      const response: any = await churchtoolsClient.get('/api/persons', { params: queryParams });
+      const response: any = await churchtoolsClient.get('/persons', queryParams );
       const data = response.data || response;
 
       return (data.data || data).map((p: any) => ({
