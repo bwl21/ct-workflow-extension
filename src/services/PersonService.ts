@@ -67,7 +67,7 @@ export class PersonService {
    */
   static async getPerson(id: number): Promise<Person | null> {
     try {
-      const response: any = await churchtoolsClient.get(`/api/persons/${id}`);
+      const response: any = await churchtoolsClient.get(`/persons/${id}`);
       const data = response.data || response;
       const p = data.data || data;
 
