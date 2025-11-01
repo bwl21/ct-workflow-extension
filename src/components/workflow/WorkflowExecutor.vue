@@ -684,7 +684,7 @@ onUnmounted(() => {
                   <span class="result-icon">✕</span>
                   <strong>Fehler bei Ausführung</strong>
                 </div>
-                <p>{{ actionResult.error }}</p>
+                <pre>{{ actionResult.error }}</pre>
               </div>
               
               <button class="ct-btn ct-btn-primary" @click="submitStep">Fortfahren</button>
