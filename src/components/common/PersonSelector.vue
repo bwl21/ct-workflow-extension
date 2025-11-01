@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue';
 import { PersonService, type Person } from '@/services/PersonService';
 
 const props = defineProps<{
-  modelValue: number | number[] | null;
+  modelValue: Person | Person[] | null;
   multiple?: boolean;
   required?: boolean;
   placeholder?: string;
@@ -15,7 +15,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  'update:modelValue': [value: number | number[] | null];
+  'update:modelValue': [value: Person | Person[] | null];
 }>();
 
 const searchQuery = ref('');
@@ -50,15 +50,13 @@ watch(searchQuery, () => {
 // Ausgewählte Personen beim Mount laden
 watch(
   () => props.modelValue,
-  async (value) => {
+  (value) => {
     if (!value) {
       selectedPersons.value = [];
       return;
     }
 
-    const ids = Array.isArray(value) ? value : [value];
-    const loaded = await Promise.all(ids.map((id) => PersonService.getPerson(id)));
-    selectedPersons.value = loaded.filter((p) => p !== null) as Person[];
+    selectedPersons.value = Array.isArray(value) ? value : [value];
   },
   { immediate: true }
 );
@@ -66,16 +64,18 @@ watch(
 function selectPerson(person: Person) {
   if (props.multiple) {
     const current = Array.isArray(props.modelValue) ? props.modelValue : [];
-    if (current.includes(person.id)) {
+    const isAlreadySelected = current.some((p) => p.id === person.id);
+    
+    if (isAlreadySelected) {
       emit(
         'update:modelValue',
-        current.filter((id) => id !== person.id)
+        current.filter((p) => p.id !== person.id)
       );
     } else {
-      emit('update:modelValue', [...current, person.id]);
+      emit('update:modelValue', [...current, person]);
     }
   } else {
-    emit('update:modelValue', person.id);
+    emit('update:modelValue', person);
     showDropdown.value = false;
   }
 }
@@ -85,7 +85,7 @@ function removePerson(personId: number) {
     const current = Array.isArray(props.modelValue) ? props.modelValue : [];
     emit(
       'update:modelValue',
-      current.filter((id) => id !== personId)
+      current.filter((p) => p.id !== personId)
     );
   } else {
     emit('update:modelValue', null);
@@ -94,9 +94,9 @@ function removePerson(personId: number) {
 
 function isSelected(personId: number): boolean {
   if (Array.isArray(props.modelValue)) {
-    return props.modelValue.includes(personId);
+    return props.modelValue.some((p) => p.id === personId);
   }
-  return props.modelValue === personId;
+  return props.modelValue?.id === personId;
 }
 
 const displayText = computed(() => {
