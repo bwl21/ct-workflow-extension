@@ -96,9 +96,9 @@ export function useWorkflows() {
     }
     
     // Use post with _method=DELETE for ChurchTools API
-    await churchtoolsClient.post(
+    await churchtoolsClient.deleteApi(
       `/custommodules/${moduleId.value}/customdatacategories/${id}`,
-      { _method: 'DELETE' }
+      { categoryId: id }
     );
     
     // Invalidate query to refetch
