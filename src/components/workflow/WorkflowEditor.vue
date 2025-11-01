@@ -10,6 +10,7 @@ import type { WorkflowNode, WorkflowEdge } from '@/types/workflow.types';
 import { NodeType, FieldType } from '@/types/workflow.types';
 import { calculateAutoLayout } from '@/utils/auto-layout';
 import { getAvailableVariables } from '@/utils/template-interpolation';
+import { actionRegistry } from '@/services/ActionRegistry';
 
 const workflowStore = useWorkflowStore();
 
@@ -36,6 +37,11 @@ const currentWorkflow = computed(() => workflowStore.currentWorkflow);
 const availableVariables = computed(() => {
   if (!currentWorkflow.value || !selectedNode.value) return [];
   return getAvailableVariables(currentWorkflow.value.definition, selectedNode.value.id);
+});
+
+const selectedAction = computed(() => {
+  if (!selectedNode.value?.data?.actionId) return null;
+  return actionRegistry.get(selectedNode.value.data.actionId);
 });
 
 const nodeTypes = [
@@ -689,6 +695,92 @@ function applyAutoLayout() {
   currentWorkflow.value.definition.nodes = layoutedNodes;
   workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
 }
+
+function getActionsByCategory() {
+  const grouped = actionRegistry.getGroupedByCategory();
+  const categoryLabels: Record<string, string> = {
+    integration: '🌐 Integration',
+    communication: '📧 Kommunikation',
+    data: '📊 Daten',
+    logic: '🔀 Logik',
+    churchtools: '⛪ ChurchTools',
+    custom: '🔧 Benutzerdefiniert',
+  };
+  
+  return Object.entries(grouped).map(([category, actions]) => ({
+    name: category,
+    label: categoryLabels[category] || category,
+    actions,
+  }));
+}
+
+function onActionChange() {
+  if (!selectedNode.value || !selectedNode.value.data.actionId) return;
+  
+  // Initialisiere Action-Config mit defaultConfig
+  const action = actionRegistry.get(selectedNode.value.data.actionId);
+  if (action) {
+    selectedNode.value.data.actionConfig = { ...action.defaultConfig };
+  }
+}
+
+function updateActionConfig(newConfig: any) {
+  if (!selectedNode.value) return;
+  selectedNode.value.data.actionConfig = newConfig;
+}
+
+function getActionContext() {
+  if (!currentWorkflow.value || !selectedNode.value) {
+    return {
+      workflowContext: {},
+      executionId: 'editor',
+      nodeId: selectedNode.value?.id || '',
+      userId: 'editor',
+      helpers: {
+        getVariable: (_key: string) => undefined,
+        setVariable: () => {},
+        setVariables: () => {},
+        hasVariable: () => false,
+        http: {} as any,
+        churchtools: {} as any,
+        log: {
+          debug: console.debug,
+          info: console.info,
+          warn: console.warn,
+          error: console.error,
+        },
+      },
+    };
+  }
+
+  // Sammle alle verfügbaren Variablen aus vorherigen Nodes
+  const workflowContext: Record<string, any> = {};
+  const variables = getAvailableVariables(currentWorkflow.value.definition, selectedNode.value.id);
+  variables.forEach((v: string) => {
+    workflowContext[v] = `{{${v}}}`;
+  });
+
+  return {
+    workflowContext,
+    executionId: 'editor',
+    nodeId: selectedNode.value.id,
+    userId: 'editor',
+    helpers: {
+      getVariable: (key: string) => workflowContext[key],
+      setVariable: () => {},
+      setVariables: () => {},
+      hasVariable: (key: string) => key in workflowContext,
+      http: {} as any,
+      churchtools: {} as any,
+      log: {
+        debug: console.debug,
+        info: console.info,
+        warn: console.warn,
+        error: console.error,
+      },
+    },
+  };
+}
 </script>
 
 <template>
@@ -1107,6 +1199,57 @@ function applyAutoLayout() {
             </div> <!-- end field-content -->
           </div> <!-- end field-editor -->
           <button class="ct-btn ct-btn-secondary ct-btn-sm" @click="addField">+ Feld hinzufügen</button>
+        </div>
+
+        <!-- Action Node -->
+        <div v-if="selectedNode.type === NodeType.ACTION" class="action-config">
+          <h4>Action auswählen</h4>
+          <div class="ct-form-group">
+            <label class="ct-form-label">Action</label>
+            <select v-model="selectedNode.data.actionId" class="ct-form-control" @change="onActionChange">
+              <option value="">-- Action wählen --</option>
+              <optgroup 
+                v-for="category in getActionsByCategory()" 
+                :key="category.name" 
+                :label="category.label"
+              >
+                <option 
+                  v-for="action in category.actions" 
+                  :key="action.id" 
+                  :value="action.id"
+                >
+                  {{ action.name }}
+                </option>
+              </optgroup>
+            </select>
+            <small v-if="selectedAction" class="form-hint">
+              {{ selectedAction.description }}
+            </small>
+          </div>
+
+          <div v-if="selectedAction" class="action-details">
+            <div class="ct-alert ct-alert-info">
+              <strong>{{ selectedAction.name }}</strong><br>
+              {{ selectedAction.description }}
+            </div>
+            
+            <div v-if="selectedAction.metadata?.tags" class="action-tags">
+              <span v-for="tag in selectedAction.metadata.tags" :key="tag" class="badge">
+                {{ tag }}
+              </span>
+            </div>
+
+            <!-- Action Config Component -->
+            <div class="action-config-container">
+              <h5>Konfiguration</h5>
+              <component
+                :is="selectedAction.configComponent"
+                :config="selectedNode.data.actionConfig || selectedAction.defaultConfig"
+                :context="getActionContext()"
+                @update:config="updateActionConfig"
+              />
+            </div>
+          </div>
         </div>
 
         <!-- Decision Node -->
@@ -2007,6 +2150,44 @@ function applyAutoLayout() {
   border-radius: 4px;
   cursor: pointer;
   padding: 2px;
+}
+
+/* Action Config */
+.action-config {
+  padding: 1rem;
+}
+
+.action-details {
+  margin-top: 1rem;
+}
+
+.action-tags {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.action-tags .badge {
+  background: #e9ecef;
+  color: #495057;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+.action-config-container {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.action-config-container h5 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #495057;
 }
 
 .output-condition {
