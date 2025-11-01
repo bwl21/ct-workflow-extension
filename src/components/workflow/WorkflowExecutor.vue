@@ -49,6 +49,36 @@ const isCompleted = computed(() => {
   return currentExecution.value?.status === ExecutionStatus.COMPLETED;
 });
 
+// Computed property für interpolierte defaultValues
+// Wird automatisch aktualisiert, wenn sich formData ändert
+const interpolatedDefaults = computed(() => {
+  if (!currentNode.value || currentNode.value.type !== NodeType.TASK) {
+    return {};
+  }
+  
+  const fields = currentNode.value.data.fields || [];
+  const contextVars = currentExecution.value?.context.variables || {};
+  const defaults: Record<string, any> = {};
+  
+  // Kombiniere Context mit aktuellen formData für Live-Interpolation
+  const combinedContext = {
+    ...contextVars,
+    ...formData.value
+  };
+  
+  fields.forEach(field => {
+    if (field.defaultValue) {
+      const interpolated = interpolate(
+        String(field.defaultValue),
+        combinedContext
+      );
+      defaults[field.name] = interpolated;
+    }
+  });
+  
+  return defaults;
+});
+
 function initializeFormData() {
   if (!currentNode.value || currentNode.value.type !== NodeType.TASK) {
     return;
@@ -64,22 +94,13 @@ function initializeFormData() {
     if (contextVars[field.name] !== undefined) {
       formData.value[field.name] = contextVars[field.name];
     }
-    // Priorität 2: defaultValue mit Interpolation
-    // Kombiniere Context mit bereits initialisierten formData-Werten
-    else if (field.defaultValue) {
-      const combinedContext = {
-        ...contextVars,
-        ...formData.value
-      };
-      const interpolated = interpolate(
-        String(field.defaultValue),
-        combinedContext
-      );
-      formData.value[field.name] = interpolated;
-    }
-    // Priorität 3: Spezielle Defaults
+    // Priorität 2: Spezielle Defaults
     else if (field.type === 'multiselect') {
       formData.value[field.name] = [];
+    }
+    // Priorität 3: Leerer String für Text-Felder (defaultValue wird über interpolatedDefaults gehandhabt)
+    else if (['text', 'email', 'tel', 'url', 'textarea'].includes(field.type)) {
+      formData.value[field.name] = '';
     }
   });
 }
@@ -244,6 +265,32 @@ watch(currentNode, () => {
   }
 }, { immediate: true });
 
+// Watch für Live-Update der defaultValues
+// Wenn ein Feld leer ist und ein interpolierter defaultValue existiert, fülle es aus
+watch(interpolatedDefaults, (newDefaults) => {
+  if (!currentNode.value || currentNode.value.type !== NodeType.TASK) {
+    return;
+  }
+  
+  const fields = currentNode.value.data.fields || [];
+  
+  fields.forEach(field => {
+    // Nur aktualisieren, wenn:
+    // 1. Ein defaultValue existiert
+    // 2. Das Feld noch leer/unberührt ist
+    // 3. Der interpolierte Wert sich geändert hat
+    if (field.defaultValue && newDefaults[field.name]) {
+      const currentValue = formData.value[field.name];
+      const newValue = newDefaults[field.name];
+      
+      // Wenn Feld leer ist oder noch den alten interpolierten Wert hat
+      if (!currentValue || currentValue === '') {
+        formData.value[field.name] = newValue;
+      }
+    }
+  });
+}, { deep: true });
+
 // Click-Outside Handler für Dropdown
 function handleClickOutside(event: MouseEvent) {
   const target = event.target as HTMLElement;
@@ -397,7 +444,7 @@ onUnmounted(() => {
                 v-model="formData[field.name]"
                 :type="field.type"
                 class="ct-form-control"
-                :placeholder="field.placeholder"
+                :placeholder="field.placeholder || interpolatedDefaults[field.name]"
                 :required="field.required"
               />
 
@@ -407,7 +454,7 @@ onUnmounted(() => {
                 v-model="formData[field.name]"
                 class="ct-form-control"
                 rows="4"
-                :placeholder="field.placeholder"
+                :placeholder="field.placeholder || interpolatedDefaults[field.name]"
                 :required="field.required"
               />
 
