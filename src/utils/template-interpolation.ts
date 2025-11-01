@@ -1,5 +1,5 @@
 import type { WorkflowDefinition } from '@/types/workflow.types';
-import { NodeType } from '@/types/workflow.types';
+import { NodeType, FieldType } from '@/types/workflow.types';
 
 /**
  * Interpoliert {{variableName}} oder {{object.property}} mit Werten aus Context
@@ -73,6 +73,7 @@ export function extractPlaceholders(template: string): string[] {
 
 /**
  * Sammelt alle verfügbaren Variablen aus vorherigen Tasks UND dem aktuellen Task
+ * Für Person-Felder werden auch die Objekt-Properties hinzugefügt
  * 
  * @param workflow - Workflow-Definition
  * @param currentNodeId - ID des aktuellen Nodes
@@ -80,7 +81,7 @@ export function extractPlaceholders(template: string): string[] {
  * 
  * @example
  * getAvailableVariables(workflow, "task2")
- * // => ["email", "name", "phone"]
+ * // => ["email", "name", "phone", "assignedPerson.firstName", "assignedPerson.email"]
  */
 export function getAvailableVariables(
   workflow: WorkflowDefinition,
@@ -97,6 +98,11 @@ export function getAvailableVariables(
       // Sammle alle Feldnamen
       node.data.fields.forEach(field => {
         variables.add(field.name);
+        
+        // Für Person-Felder: Füge auch die Objekt-Properties hinzu
+        if (field.type === FieldType.PERSON || field.type === FieldType.PERSON_MULTI) {
+          addPersonProperties(field.name, variables);
+        }
       });
     }
   }
@@ -107,9 +113,36 @@ export function getAvailableVariables(
     if (currentNode.type === NodeType.TASK && currentNode.data.fields) {
       currentNode.data.fields.forEach(field => {
         variables.add(field.name);
+        
+        // Für Person-Felder: Füge auch die Objekt-Properties hinzu
+        if (field.type === FieldType.PERSON || field.type === FieldType.PERSON_MULTI) {
+          addPersonProperties(field.name, variables);
+        }
       });
     }
   }
   
   return Array.from(variables).sort();
+}
+
+/**
+ * Fügt alle verfügbaren Person-Objekt-Properties zu den Variablen hinzu
+ * 
+ * @param fieldName - Name des Person-Feldes
+ * @param variables - Set zum Hinzufügen der Properties
+ */
+function addPersonProperties(fieldName: string, variables: Set<string>): void {
+  // Verfügbare Properties aus PersonService.ts
+  const personProperties = [
+    'id',
+    'firstName',
+    'lastName',
+    'nickname',
+    'email',
+    'imageUrl'
+  ];
+  
+  personProperties.forEach(prop => {
+    variables.add(`${fieldName}.${prop}`);
+  });
 }
