@@ -190,7 +190,7 @@ onMounted(() => execute());
 
     <div v-else-if="status === 'error'" class="status error">
       <div class="icon">✕</div>
-      <p style="white-space: pre-line;">{{ message }}</p>
+      <pre style="text-align: left; background: #ffebee; padding: 1rem; border-radius: 4px; white-space: pre-wrap; font-family: inherit;">{{ message }}</pre>
     </div>
   </div>
 </template>
