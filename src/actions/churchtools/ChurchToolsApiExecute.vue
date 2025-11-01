@@ -64,7 +64,6 @@ const interpolateObject = (obj: any): any => {
  * Führt den API-Call aus
  */
 const execute = async () => {
-  console.log('[ChurchToolsApiExecute] VERSION 2025-11-01-19:16 - NEUE VERSION');
   loading.value = true;
   const startTime = Date.now();
 
@@ -157,8 +156,6 @@ const execute = async () => {
     message.value = errorMessage;
     responseData.value = null;
 
-    console.error('[ChurchToolsApiExecute] Error:', error);
-
     emit('complete', {
       success: false,
       error: errorMessage,
@@ -174,10 +171,6 @@ onMounted(() => execute());
 
 <template>
   <div class="ct-api-execute">
-    <div style="background: lightblue; padding: 0.5rem; margin-bottom: 0.5rem;">
-      Template Debug: status={{ status }}, loading={{ loading }}
-    </div>
-    
     <div v-if="loading" class="status loading">
       <div class="spinner"></div>
       <p>{{ message }}</p>
@@ -197,22 +190,7 @@ onMounted(() => execute());
 
     <div v-else-if="status === 'error'" class="status error">
       <div class="icon">✕</div>
-      <p>{{ message }} [VERSION 19:50]</p>
-      
-      <div style="background: red; color: white; padding: 2rem; margin: 1rem; font-size: 2rem; font-weight: bold;">
-        NEUE VERSION GELADEN!
-      </div>
-      
-      <!-- Validierungsfehler -->
-      <div style="background: white; border: 3px solid red; padding: 1rem; margin: 1rem;">
-        <h4 style="color: red; font-size: 1.5rem;">Validierungsfehler ({{ responseData?.errors?.length || 0 }}):</h4>
-        <ul v-if="responseData?.errors" style="text-align: left; font-size: 1.2rem;">
-          <li v-for="(err, index) in responseData.errors" :key="index" style="margin: 0.5rem 0;">
-            <strong style="color: red;">{{ err.fieldId }}:</strong> {{ err.message }}
-          </li>
-        </ul>
-        <p v-else style="color: red; font-size: 1.2rem;">Keine Validierungsfehler gefunden</p>
-      </div>
+      <p style="white-space: pre-line;">{{ message }}</p>
     </div>
   </div>
 </template>

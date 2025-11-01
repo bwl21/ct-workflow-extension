@@ -4,8 +4,8 @@ import ChurchToolsApiConfig from './ChurchToolsApiConfig.vue';
 import ChurchToolsApiExecute from './ChurchToolsApiExecute.vue';
 
 export const ChurchToolsApiAction: ActionPlugin = {
-  id: 'ct-api-call-v2',
-  name: 'ChurchTools API Call V2',
+  id: 'ct-api-call',
+  name: 'ChurchTools API Call',
   description: 'Führt einen ChurchTools API-Call aus',
   icon: 'church',
   category: ActionCategory.CHURCHTOOLS,
