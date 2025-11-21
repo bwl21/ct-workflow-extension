@@ -88,31 +88,31 @@ const execute = async () => {
       }
 
       case 'POST': {
-        const body = interpolateObject(
-          typeof props.config.body === 'string'
-            ? JSON.parse(props.config.body)
-            : props.config.body
-        );
+        // Interpoliere ZUERST den String, DANN parse JSON
+        const bodyString = typeof props.config.body === 'string'
+          ? interpolateVariables(props.config.body)
+          : JSON.stringify(props.config.body);
+        const body = JSON.parse(bodyString);
         response = await churchtoolsClient.post(endpoint, body);
         break;
       }
 
       case 'PUT': {
-        const body = interpolateObject(
-          typeof props.config.body === 'string'
-            ? JSON.parse(props.config.body)
-            : props.config.body
-        );
+        // Interpoliere ZUERST den String, DANN parse JSON
+        const bodyString = typeof props.config.body === 'string'
+          ? interpolateVariables(props.config.body)
+          : JSON.stringify(props.config.body);
+        const body = JSON.parse(bodyString);
         response = await churchtoolsClient.put(endpoint, body);
         break;
       }
 
       case 'PATCH': {
-        const body = interpolateObject(
-          typeof props.config.body === 'string'
-            ? JSON.parse(props.config.body)
-            : props.config.body
-        );
+        // Interpoliere ZUERST den String, DANN parse JSON
+        const bodyString = typeof props.config.body === 'string'
+          ? interpolateVariables(props.config.body)
+          : JSON.stringify(props.config.body);
+        const body = JSON.parse(bodyString);
         response = await churchtoolsClient.patch(endpoint, body);
         break;
       }
