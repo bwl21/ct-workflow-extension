@@ -13,9 +13,6 @@ import { getAvailableVariables } from '@/utils/template-interpolation';
 
 const workflowStore = useWorkflowStore();
 
-const workflowName = ref('');
-const workflowDescription = ref('');
-const showCreateDialog = ref(false);
 const selectedNode = ref<WorkflowNode | null>(null);
 const showNodeEditor = ref(false);
 const showEdgeEditor = ref(false);
@@ -45,19 +42,6 @@ const nodeTypes = [
   { type: NodeType.DECISION, label: 'Entscheidung', icon: '❓' },
   { type: NodeType.END, label: 'Ende', icon: '✓' },
 ];
-
-async function createNewWorkflow() {
-  if (!workflowName.value) return;
-
-  await workflowStore.createWorkflow(workflowName.value, workflowDescription.value);
-
-  // Note: Start node should be added in AdminView after workflow is created
-  // For now, workflows are created empty
-
-  workflowName.value = '';
-  workflowDescription.value = '';
-  showCreateDialog.value = false;
-}
 
 function addNode(type: NodeType) {
   if (!currentWorkflow.value) return;
@@ -677,9 +661,9 @@ function applyAutoLayout() {
     <!-- Header -->
     <div class="editor-header">
       <h2>Workflow-Editor</h2>
-      <button v-if="!currentWorkflow" class="ct-btn ct-btn-primary" @click="showCreateDialog = true">
-        + Neuer Workflow
-      </button>
+      <div v-if="!currentWorkflow" class="empty-state">
+        <p>Kein Workflow ausgewählt. Bitte wähle einen Workflow aus der Verwaltung.</p>
+      </div>
       <div v-else class="workflow-info">
         <div>
           <h3>{{ currentWorkflow.name }}</h3>
@@ -692,28 +676,6 @@ function applyAutoLayout() {
           <button class="ct-btn ct-btn-secondary" @click="showWorkflowJson" title="Workflow als JSON anzeigen">
             📋 JSON anzeigen
           </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Create Dialog -->
-    <div v-if="showCreateDialog" class="modal-overlay">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>Neuer Workflow</h3>
-          <button class="modal-close-btn" @click="showCreateDialog = false" title="Schließen">✕</button>
-        </div>
-        <div class="ct-form-group">
-          <label class="ct-form-label">Name</label>
-          <input v-model="workflowName" type="text" class="ct-form-control" />
-        </div>
-        <div class="ct-form-group">
-          <label class="ct-form-label">Beschreibung</label>
-          <textarea v-model="workflowDescription" class="ct-form-control" rows="3" />
-        </div>
-        <div class="modal-actions">
-          <button class="ct-btn ct-btn-secondary" @click="showCreateDialog = false">Abbrechen</button>
-          <button class="ct-btn ct-btn-primary" @click="createNewWorkflow">Erstellen</button>
         </div>
       </div>
     </div>

@@ -102,7 +102,7 @@ export function useWorkflows() {
   
   const workflows = computed(() => workflowsData.value ?? []);
   
-  const createWorkflow = async (name: string, definition: WorkflowDefinition) => {
+  const createWorkflow = async (name: string, definition: WorkflowDefinition): Promise<number> => {
     console.log('[useWorkflows] createWorkflow called:', { name, definition, moduleId: moduleId.value });
     
     if (!moduleId.value) {
@@ -146,6 +146,9 @@ export function useWorkflows() {
       
       // Invalidate query to refetch
       queryClient.invalidateQueries({ queryKey: ['workflows', moduleId] });
+      
+      // Gib die ID des neuen Workflows zurück
+      return newCategory.id;
     } catch (error) {
       console.error('[useWorkflows] Failed to create workflow:', error);
       throw error;

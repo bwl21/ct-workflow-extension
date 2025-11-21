@@ -65,9 +65,18 @@ async function createWorkflow() {
       }
     };
     
-    await backendWorkflows.createWorkflow(newWorkflow.value.name, definition);
+    const newWorkflowId = await backendWorkflows.createWorkflow(newWorkflow.value.name, definition);
     showCreateModal.value = false;
     newWorkflow.value = { name: '', description: '', category: 'Allgemein' };
+    
+    // Warte kurz, damit Vue Query die Daten laden kann
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Öffne den Editor automatisch für den neuen Workflow
+    const createdWorkflow = workflows.value.find(w => w.id === newWorkflowId);
+    if (createdWorkflow) {
+      openEditModal(createdWorkflow);
+    }
   } catch (error) {
     console.error('Failed to create workflow:', error);
     alert('Fehler beim Erstellen des Workflows.');
