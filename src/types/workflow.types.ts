@@ -65,6 +65,14 @@ export interface NodeData {
   
   // Decision Node Outputs mit Bedingungen
   outputs?: DecisionOutput[];
+
+  // Für Join-Knoten
+  joinMode?: JoinMode;
+}
+
+export enum JoinMode {
+  AND = 'and', // Warte auf ALLE eingehenden Branches
+  OR = 'or',   // Warte auf EINEN eingehenden Branch
 }
 
 export interface DecisionOutput {
@@ -134,6 +142,7 @@ export enum NodeType {
   TASK = 'task',
   ACTION = 'action',
   DECISION = 'decision',
+  JOIN = 'join',
   END = 'end',
 }
 
@@ -193,6 +202,15 @@ export interface ExecutionContext {
   variables: Record<string, any>;
   userId: string;
   timestamp: Date;
+  nodeQueue?: string[]; // Queue for sequential multi-edge execution
+  joinStates?: Record<string, JoinState>; // Track JOIN node states
+}
+
+export interface JoinState {
+  nodeId: string;
+  expectedBranches: number; // How many branches should arrive
+  completedBranches: number; // How many have arrived
+  branchData: Record<string, any>[]; // Data from each branch
 }
 
 export interface StepHistory {
