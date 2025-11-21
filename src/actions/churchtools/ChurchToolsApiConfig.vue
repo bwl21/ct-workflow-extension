@@ -10,6 +10,7 @@ interface Props {
     params: Record<string, string>;
     body: any;
     responseMapping: Record<string, string>;
+    responseVariable?: string; // Name der Variable für Response-Speicherung
   };
   context: ActionContext;
 }
@@ -212,7 +213,22 @@ const insertPlaceholder = (variable: string) => {
     </div>
 
     <div class="ct-form-group">
-      <label class="ct-form-label">Response Mapping</label>
+      <label class="ct-form-label">Response speichern als</label>
+      <input
+        v-model="localConfig.responseVariable"
+        type="text"
+        class="ct-form-control"
+        placeholder="z.B. apiResponse, createdPerson, etc."
+        @blur="updateConfig"
+      />
+      <small class="ct-form-text">
+        Die API-Response wird unter diesem Variablennamen gespeichert und kann in folgenden Schritten 
+        über Platzhalter verwendet werden (z.B. <code>{{'{{'}}apiResponse.id}}</code>)
+      </small>
+    </div>
+
+    <div class="ct-form-group">
+      <label class="ct-form-label">Response Mapping (Optional)</label>
       <small class="ct-form-text">
         Mappe Response-Felder auf Workflow-Variablen (z.B. <code>data.id → personId</code>)
       </small>
