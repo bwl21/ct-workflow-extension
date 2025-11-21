@@ -31,7 +31,13 @@ const responseData = ref<any>(null);
 const interpolateVariables = (str: string): string => {
   if (typeof str !== 'string') return str;
   
-  return interpolate(str, props.context.workflowContext);
+  console.log('[ChurchToolsApi] Interpolating:', str);
+  console.log('[ChurchToolsApi] Context:', props.context.workflowContext);
+  
+  const result = interpolate(str, props.context.workflowContext);
+  
+  console.log('[ChurchToolsApi] Result:', result);
+  return result;
 };
 
 /**
