@@ -3,7 +3,7 @@
  */
 
 export interface Workflow {
-  id: number; // Backend-ID
+  id: number; // Backend-ID (CustomDataCategory ID)
   name: string;
   description: string;
   category: string;
@@ -11,6 +11,7 @@ export interface Workflow {
   createdAt: Date;
   updatedAt: Date;
   createdBy?: string;
+  valueId?: number; // CustomDataValue ID where definition is stored
   isCorrupted?: boolean; // Marks workflows with invalid data
   corruptionReason?: string; // Reason why workflow is corrupted
 }

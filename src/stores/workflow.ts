@@ -56,6 +56,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
             createdAt: new Date(),
             updatedAt: new Date(),
             createdBy: 'unknown',
+            valueId: cat.valueId,
             isCorrupted: true,
             corruptionReason: 'Ungültige oder fehlende Definition'
           };
@@ -74,7 +75,8 @@ export const useWorkflowStore = defineStore('workflow', () => {
           definition,
           createdAt: new Date(definition.metadata?.createdAt || Date.now()),
           updatedAt: new Date(definition.metadata?.updatedAt || Date.now()),
-          createdBy: definition.metadata?.createdBy || 'unknown'
+          createdBy: definition.metadata?.createdBy || 'unknown',
+          valueId: cat.valueId // CustomDataValue ID für Löschung
         };
       });
       

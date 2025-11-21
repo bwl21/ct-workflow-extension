@@ -37,7 +37,8 @@ const workflows = computed(() => {
       definition,
       createdAt: new Date(definition.metadata?.createdAt || Date.now()),
       updatedAt: new Date(definition.metadata?.updatedAt || Date.now()),
-      createdBy: definition.metadata?.createdBy || 'unknown'
+      createdBy: definition.metadata?.createdBy || 'unknown',
+      valueId: cat.valueId // CustomDataValue ID für Löschung
     };
   });
 });
