@@ -7,7 +7,7 @@ import EdgeEditor from './EdgeEditor.vue';
 import PlaceholderDropdown from './PlaceholderDropdown.vue';
 import JsonEditor from '@/components/common/JsonEditor.vue';
 import type { WorkflowNode, WorkflowEdge } from '@/types/workflow.types';
-import { NodeType, FieldType } from '@/types/workflow.types';
+import { NodeType, FieldType, JoinMode } from '@/types/workflow.types';
 import { calculateAutoLayout } from '@/utils/auto-layout';
 import { getAvailableVariables } from '@/utils/template-interpolation';
 import { actionRegistry } from '@/services/ActionRegistry';
@@ -46,6 +46,7 @@ const nodeTypes = [
   { type: NodeType.TASK, label: 'Aufgabe', icon: '📝' },
   { type: NodeType.ACTION, label: 'Aktion', icon: '⚡' },
   { type: NodeType.DECISION, label: 'Entscheidung', icon: '❓' },
+  { type: NodeType.JOIN, label: 'Zusammenführung', icon: '⚡' },
   { type: NodeType.END, label: 'Ende', icon: '✓' },
 ];
 
@@ -91,6 +92,8 @@ function addNode(type: NodeType) {
             }
           ]
         }
+      : type === NodeType.JOIN
+      ? { joinMode: JoinMode.AND }
       : {},
   };
 
@@ -116,10 +119,20 @@ function getDefaultLabel(type: NodeType): string {
       return 'Neue Aktion';
     case NodeType.DECISION:
       return 'Entscheidung';
+    case NodeType.JOIN:
+      return 'Zusammenführung';
     case NodeType.END:
       return 'Ende';
     default:
       return 'Knoten';
+  }
+}
+
+function ensureJoinMode() {
+  if (selectedNode.value && selectedNode.value.type === NodeType.JOIN) {
+    if (!selectedNode.value.data.joinMode) {
+      selectedNode.value.data.joinMode = JoinMode.AND;
+    }
   }
 }
 
@@ -1332,6 +1345,53 @@ function getActionContext() {
         </div>
         </div>
 
+        <!-- Join Node -->
+        <div v-if="selectedNode.type === NodeType.JOIN" class="join-config">
+          <h4>Zusammenführungs-Modus</h4>
+          <p class="info-text">
+            Bestimme, wie die eingehenden Branches verarbeitet werden sollen.
+          </p>
+          
+          <div class="join-mode-selector">
+            <label class="radio-option">
+              <input 
+                type="radio" 
+                :value="'and'" 
+                v-model="selectedNode.data.joinMode"
+                @change="ensureJoinMode"
+              />
+              <div class="radio-content">
+                <strong>AND - Alle warten</strong>
+                <p>Wartet bis ALLE eingehenden Branches abgeschlossen sind</p>
+                <div class="example">
+                  <code>Branch 1 ✓ + Branch 2 ✓ → Weiter</code>
+                </div>
+              </div>
+            </label>
+
+            <label class="radio-option">
+              <input 
+                type="radio" 
+                :value="'or'" 
+                v-model="selectedNode.data.joinMode"
+                @change="ensureJoinMode"
+              />
+              <div class="radio-content">
+                <strong>OR - Erster gewinnt</strong>
+                <p>Fährt fort sobald der ERSTE Branch abgeschlossen ist</p>
+                <div class="example">
+                  <code>Branch 1 ✓ → Weiter (Branch 2 wird ignoriert)</code>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="join-info">
+            <strong>Aktuell:</strong> 
+            {{ selectedNode.data.joinMode === 'or' ? 'OR-Modus (Erster Branch)' : 'AND-Modus (Alle Branches)' }}
+          </div>
+        </div>
+
         <div class="modal-actions-sticky">
           <button class="ct-btn ct-btn-secondary" @click="showNodeEditor = false">Abbrechen</button>
           <button class="ct-btn ct-btn-primary" @click="saveNode">Speichern</button>
@@ -2199,5 +2259,94 @@ function getActionContext() {
 .badge-label {
   background: #e9ecef;
   color: #495057;
+}
+
+/* Join Node Config */
+.join-config {
+  margin-top: 1.5rem;
+}
+
+.join-config h4 {
+  margin-bottom: 0.5rem;
+}
+
+.join-config .info-text {
+  background: #f3e5f5;
+  padding: 0.75rem;
+  border-radius: 4px;
+  border-left: 4px solid #9c27b0;
+  margin-bottom: 1rem;
+  color: #6a1b9a;
+  font-size: 0.875rem;
+}
+
+.join-mode-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.radio-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.radio-option:hover {
+  border-color: #9c27b0;
+  background: #faf5ff;
+}
+
+.radio-option input[type="radio"] {
+  margin-top: 0.25rem;
+  cursor: pointer;
+}
+
+.radio-option input[type="radio"]:checked + .radio-content {
+  color: #6a1b9a;
+}
+
+.radio-content {
+  flex: 1;
+}
+
+.radio-content strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 1rem;
+}
+
+.radio-content p {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.875rem;
+  color: #6c757d;
+}
+
+.radio-content .example {
+  background: white;
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+}
+
+.radio-content .example code {
+  font-size: 0.8rem;
+  color: #495057;
+}
+
+.join-info {
+  padding: 0.75rem;
+  background: #e8f5e9;
+  border-left: 4px solid #4caf50;
+  border-radius: 4px;
+  color: #2e7d32;
+  font-size: 0.875rem;
 }
 </style>

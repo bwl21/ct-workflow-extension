@@ -13,6 +13,7 @@ import StartNode from './nodes/StartNode.vue';
 import TaskNode from './nodes/TaskNode.vue';
 import ActionNode from './nodes/ActionNode.vue';
 import DecisionNode from './nodes/DecisionNode.vue';
+import JoinNode from './nodes/JoinNode.vue';
 import EndNode from './nodes/EndNode.vue';
 
 interface Props {
@@ -160,6 +161,7 @@ const nodeTypes = markRaw({
   task: TaskNode,
   action: ActionNode,
   decision: DecisionNode,
+  join: JoinNode,
   end: EndNode,
 }) as any;
 
