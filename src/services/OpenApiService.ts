@@ -44,11 +44,15 @@ class OpenApiService {
     try {
       console.log('[OpenApiService] Loading endpoints from OpenAPI spec...');
       
-      // Verwende die konfigurierte ChurchTools-Base-URL
-      const baseUrl = import.meta.env.VITE_BASE_URL || window.location.origin;
+      // Im Dev-Mode: Verwende relativen Pfad (wird durch Vite-Proxy geleitet)
+      // In Production: Verwende absolute URL
+      const isDev = import.meta.env.DEV;
+      const url = isDev 
+        ? '/system/runtime/swagger/openapi.json'  // Vite-Proxy
+        : `${window.location.origin}/system/runtime/swagger/openapi.json`;
       
-      console.log('[OpenApiService] Base URL:', baseUrl);
-      const response = await fetch(`${baseUrl}/system/runtime/swagger/openapi.json`);
+      console.log('[OpenApiService] Fetching from:', url);
+      const response = await fetch(url);
       const openapi = await response.json();
       
       const endpoints: Endpoint[] = [];
