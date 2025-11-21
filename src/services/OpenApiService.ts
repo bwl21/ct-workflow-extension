@@ -44,9 +44,11 @@ class OpenApiService {
     try {
       console.log('[OpenApiService] Loading endpoints from OpenAPI spec...');
       
-      // Verwende churchtoolsClient für korrekten Host
-      // Der Pfad ist ohne /api, da es ein System-Endpoint ist
-      const response = await fetch(`${window.location.origin}/system/runtime/swagger/openapi.json`);
+      // Verwende die konfigurierte ChurchTools-Base-URL
+      const baseUrl = import.meta.env.VITE_BASE_URL || window.location.origin;
+      
+      console.log('[OpenApiService] Base URL:', baseUrl);
+      const response = await fetch(`${baseUrl}/system/runtime/swagger/openapi.json`);
       const openapi = await response.json();
       
       const endpoints: Endpoint[] = [];
