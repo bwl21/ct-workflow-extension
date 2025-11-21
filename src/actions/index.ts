@@ -1,12 +1,19 @@
 import { actionRegistry } from '@/services/ActionRegistry';
 import { RestApiAction } from './rest-api/RestApiAction';
 import { EmailAction } from './email/EmailAction';
+import { ChurchToolsApiAction } from './churchtools/ChurchToolsApiAction';
+import { AddToGroupAction } from './churchtools/add-to-group/AddToGroupAction';
 
 /**
  * Registriert alle Built-in Actions
  */
 export function registerBuiltInActions() {
-  actionRegistry.registerMany([RestApiAction, EmailAction]);
+  actionRegistry.registerMany([
+    RestApiAction,
+    EmailAction,
+    ChurchToolsApiAction,
+    AddToGroupAction,
+  ]);
 }
 
 /**

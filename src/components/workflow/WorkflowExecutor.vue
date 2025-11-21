@@ -3,17 +3,22 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useWorkflowStore } from '@/stores/workflow';
 import { useExecutionStore } from '@/stores/execution';
 import VueFlowDiagram from './VueFlowDiagram.vue';
-import { NodeType, ExecutionStatus } from '@/types/workflow.types';
+import PersonSelector from '@/components/common/PersonSelector.vue';
+import { NodeType, ExecutionStatus, FieldType } from '@/types/workflow.types';
 import { interpolate } from '@/utils/template-interpolation';
 import { renderMarkdownSync } from '@/utils/markdown-renderer';
 import { extractStyledHTML, extractPlainHTML } from '@/utils/html-extractor';
 import { useToast } from '@/composables/useToast';
+import { actionRegistry } from '@/services/ActionRegistry';
+import type { ActionResult } from '@/types/action-plugin.types';
 
 const workflowStore = useWorkflowStore();
 const executionStore = useExecutionStore();
 const { showSuccess } = useToast();
 
 const formData = ref<Record<string, any>>({});
+const actionResult = ref<ActionResult | null>(null);
+const actionExecuting = ref(false);
 
 const currentExecution = computed(() => executionStore.currentExecution);
 const currentNode = computed(() => executionStore.currentNode);
@@ -48,7 +53,41 @@ const isCompleted = computed(() => {
   return currentExecution.value?.status === ExecutionStatus.COMPLETED;
 });
 
+// Computed property für interpolierte defaultValues
+// Wird automatisch aktualisiert, wenn sich formData ändert
+const interpolatedDefaults = computed(() => {
+  if (!currentNode.value || currentNode.value.type !== NodeType.TASK) {
+    return {};
+  }
+  
+  const fields = currentNode.value.data.fields || [];
+  const contextVars = currentExecution.value?.context.variables || {};
+  const defaults: Record<string, any> = {};
+  
+  // Kombiniere Context mit aktuellen formData für Live-Interpolation
+  const combinedContext = {
+    ...contextVars,
+    ...formData.value
+  };
+  
+  fields.forEach(field => {
+    if (field.defaultValue) {
+      const interpolated = interpolate(
+        String(field.defaultValue),
+        combinedContext
+      );
+      defaults[field.name] = interpolated;
+    }
+  });
+  
+  return defaults;
+});
+
 function initializeFormData() {
+  // Reset action result when changing nodes
+  actionResult.value = null;
+  actionExecuting.value = false;
+  
   if (!currentNode.value || currentNode.value.type !== NodeType.TASK) {
     return;
   }
@@ -63,22 +102,13 @@ function initializeFormData() {
     if (contextVars[field.name] !== undefined) {
       formData.value[field.name] = contextVars[field.name];
     }
-    // Priorität 2: defaultValue mit Interpolation
-    // Kombiniere Context mit bereits initialisierten formData-Werten
-    else if (field.defaultValue) {
-      const combinedContext = {
-        ...contextVars,
-        ...formData.value
-      };
-      const interpolated = interpolate(
-        String(field.defaultValue),
-        combinedContext
-      );
-      formData.value[field.name] = interpolated;
-    }
-    // Priorität 3: Spezielle Defaults
+    // Priorität 2: Spezielle Defaults
     else if (field.type === 'multiselect') {
       formData.value[field.name] = [];
+    }
+    // Priorität 3: Leerer String für Text-Felder (defaultValue wird über interpolatedDefaults gehandhabt)
+    else if (['text', 'email', 'tel', 'url', 'textarea'].includes(field.type)) {
+      formData.value[field.name] = '';
     }
   });
 }
@@ -87,6 +117,13 @@ function startWorkflow(workflowId: number) {
   executionStore.startExecution(workflowId);
   initializeFormData();
 }
+
+// Watch for node changes to reset action result
+watch(currentNode, () => {
+  actionResult.value = null;
+  actionExecuting.value = false;
+  initializeFormData();
+});
 
 function submitStep() {
   if (!currentExecution.value) return;
@@ -102,8 +139,19 @@ function submitStep() {
     }
   }
 
-  executionStore.completeStep(currentExecution.value.id, { ...formData.value });
+  // Für Action-Nodes: Speichere Action-Ergebnis in History
+  let stepData = { ...formData.value };
+  if (currentNode.value?.type === NodeType.ACTION && actionResult.value) {
+    stepData = {
+      ...stepData,
+      _actionResult: actionResult.value,
+      _actionName: currentAction.value?.name,
+    };
+  }
+
+  executionStore.completeStep(currentExecution.value.id, stepData);
   formData.value = {};
+  actionResult.value = null;
 }
 
 function cancelWorkflow() {
@@ -227,6 +275,66 @@ function toggleDropdown(fieldName: string) {
   openDropdown.value = openDropdown.value === fieldName ? null : fieldName;
 }
 
+const currentAction = computed(() => {
+  if (!currentNode.value || currentNode.value.type !== NodeType.ACTION) return null;
+  if (!currentNode.value.data.actionId) return null;
+  return actionRegistry.get(currentNode.value.data.actionId);
+});
+
+function getActionContext() {
+  if (!currentExecution.value || !currentNode.value) {
+    return {
+      workflowContext: {},
+      executionId: '',
+      nodeId: '',
+      userId: '',
+      helpers: {
+        getVariable: () => undefined,
+        setVariable: () => {},
+        setVariables: () => {},
+        hasVariable: () => false,
+        http: {} as any,
+        churchtools: {} as any,
+        log: console,
+      },
+    };
+  }
+
+  return {
+    workflowContext: currentExecution.value.context.variables,
+    executionId: String(currentExecution.value.id),
+    nodeId: currentNode.value.id,
+    userId: 'current-user',
+    helpers: {
+      getVariable: (key: string) => currentExecution.value?.context.variables[key],
+      setVariable: (key: string, value: any) => {
+        if (currentExecution.value) {
+          currentExecution.value.context.variables[key] = value;
+        }
+      },
+      setVariables: (variables: Record<string, any>) => {
+        if (currentExecution.value) {
+          Object.assign(currentExecution.value.context.variables, variables);
+        }
+      },
+      hasVariable: (key: string) => key in (currentExecution.value?.context.variables || {}),
+      http: {} as any,
+      churchtools: {} as any,
+      log: console,
+    },
+  };
+}
+
+function handleActionComplete(result: ActionResult) {
+  actionResult.value = result;
+  actionExecuting.value = false;
+  
+  // Speichere Action-Ergebnis im Context
+  if (result.success && result.data && currentExecution.value) {
+    Object.assign(currentExecution.value.context.variables, result.data);
+  }
+}
+
 function closeDropdown() {
   openDropdown.value = null;
 }
@@ -242,6 +350,32 @@ watch(currentNode, () => {
     initializeFormData();
   }
 }, { immediate: true });
+
+// Watch für Live-Update der defaultValues
+// Wenn ein Feld leer ist und ein interpolierter defaultValue existiert, fülle es aus
+watch(interpolatedDefaults, (newDefaults) => {
+  if (!currentNode.value || currentNode.value.type !== NodeType.TASK) {
+    return;
+  }
+  
+  const fields = currentNode.value.data.fields || [];
+  
+  fields.forEach(field => {
+    // Nur aktualisieren, wenn:
+    // 1. Ein defaultValue existiert
+    // 2. Das Feld noch leer/unberührt ist
+    // 3. Der interpolierte Wert sich geändert hat
+    if (field.defaultValue && newDefaults[field.name]) {
+      const currentValue = formData.value[field.name];
+      const newValue = newDefaults[field.name];
+      
+      // Wenn Feld leer ist oder noch den alten interpolierten Wert hat
+      if (!currentValue || currentValue === '') {
+        formData.value[field.name] = newValue;
+      }
+    }
+  });
+}, { deep: true });
 
 // Click-Outside Handler für Dropdown
 function handleClickOutside(event: MouseEvent) {
@@ -380,13 +514,23 @@ onUnmounted(() => {
                   <span v-if="field.required" class="required">*</span>
                 </label>
 
+                <!-- Person Selector -->
+                <PersonSelector
+                  v-if="field.type === FieldType.PERSON || field.type === FieldType.PERSON_MULTI"
+                  v-model="formData[field.name]"
+                  :multiple="field.type === FieldType.PERSON_MULTI"
+                  :required="field.required"
+                  :placeholder="field.placeholder"
+                  :filter="field.personFilter"
+                />
+
                 <!-- Text inputs -->
               <input
                 v-if="['text', 'email', 'tel', 'url', 'date', 'datetime-local', 'time', 'color'].includes(field.type)"
                 v-model="formData[field.name]"
                 :type="field.type"
                 class="ct-form-control"
-                :placeholder="field.placeholder"
+                :placeholder="field.placeholder || interpolatedDefaults[field.name]"
                 :required="field.required"
               />
 
@@ -396,7 +540,7 @@ onUnmounted(() => {
                 v-model="formData[field.name]"
                 class="ct-form-control"
                 rows="4"
-                :placeholder="field.placeholder"
+                :placeholder="field.placeholder || interpolatedDefaults[field.name]"
                 :required="field.required"
               />
 
@@ -492,8 +636,59 @@ onUnmounted(() => {
 
           <!-- Action Node -->
           <div v-else-if="currentNode?.type === NodeType.ACTION" class="action-node">
-            <p>Aktion wird ausgeführt...</p>
-            <button class="ct-btn ct-btn-primary" @click="submitStep">Fortfahren</button>
+            <div v-if="!currentAction" class="ct-alert ct-alert-danger">
+              <strong>Fehler:</strong> Keine Action konfiguriert
+            </div>
+            
+            <div v-else-if="!actionResult" class="action-execution">
+              <h4>{{ currentAction.name }}</h4>
+              <p>{{ currentAction.description }}</p>
+              
+              <!-- Execute Component -->
+              <component
+                v-if="currentAction.executeComponent"
+                :is="currentAction.executeComponent"
+                :config="currentNode.data.actionConfig || currentAction.defaultConfig"
+                :context="getActionContext()"
+                @complete="handleActionComplete"
+              />
+              
+              <div v-else class="ct-alert ct-alert-info">
+                <p>Diese Action hat keine Ausführungskomponente.</p>
+                <button class="ct-btn ct-btn-primary" @click="submitStep">Fortfahren</button>
+              </div>
+            </div>
+            
+            <!-- Action Result -->
+            <div v-else class="action-result">
+              <div v-if="actionResult.success" class="ct-alert ct-alert-success">
+                <div class="result-header">
+                  <span class="result-icon">✓</span>
+                  <strong>Erfolgreich ausgeführt</strong>
+                </div>
+                
+                <div v-if="actionResult.data" class="result-data">
+                  <details>
+                    <summary>Ergebnis anzeigen</summary>
+                    <pre>{{ JSON.stringify(actionResult.data, null, 2) }}</pre>
+                  </details>
+                </div>
+                
+                <div v-if="actionResult.duration" class="result-meta">
+                  Dauer: {{ actionResult.duration }}ms
+                </div>
+              </div>
+              
+              <div v-else class="ct-alert ct-alert-danger">
+                <div class="result-header">
+                  <span class="result-icon">✕</span>
+                  <strong>Fehler bei Ausführung</strong>
+                </div>
+                <pre>{{ actionResult.error }}</pre>
+              </div>
+              
+              <button class="ct-btn ct-btn-primary" @click="submitStep">Fortfahren</button>
+            </div>
           </div>
 
           <!-- Other Node Types -->
@@ -525,7 +720,43 @@ onUnmounted(() => {
               </span>
             </div>
             <div class="history-time">{{ formatDate(entry.timestamp) }}</div>
-            <div v-if="Object.keys(entry.inputs).length > 0" class="history-data">
+            
+            <!-- Action Result -->
+            <div v-if="entry.inputs._actionResult" class="history-action-result">
+              <div v-if="entry.inputs._actionResult.success" class="action-success">
+                <div class="action-header">
+                  <span class="action-icon">✓</span>
+                  <strong>Erfolgreich ausgeführt</strong>
+                </div>
+                
+                <div v-if="entry.inputs._actionResult.data" class="action-data">
+                  <details>
+                    <summary>Ergebnis anzeigen</summary>
+                    <pre>{{ JSON.stringify(entry.inputs._actionResult.data, null, 2) }}</pre>
+                  </details>
+                </div>
+                
+                <div v-if="entry.inputs._actionResult.duration" class="action-meta">
+                  Dauer: {{ entry.inputs._actionResult.duration }}ms
+                </div>
+              </div>
+              
+              <div v-else class="action-error">
+                <div class="action-header">
+                  <span class="action-icon">✕</span>
+                  <strong>Fehler bei Ausführung</strong>
+                </div>
+                <div class="action-error-msg">
+                  {{ entry.inputs._actionResult.error }}
+                </div>
+                <div v-if="entry.inputs._actionResult.duration" class="action-meta">
+                  Dauer: {{ entry.inputs._actionResult.duration }}ms
+                </div>
+              </div>
+            </div>
+            
+            <!-- Regular Inputs -->
+            <div v-else-if="Object.keys(entry.inputs).length > 0" class="history-data">
               <strong>Eingaben:</strong>
               <ul>
                 <li v-for="(value, key) in entry.inputs" :key="key">
@@ -1046,7 +1277,152 @@ onUnmounted(() => {
 
 .action-node,
 .simple-node {
-  text-align: center;
   padding: 2rem;
+}
+
+.action-execution h4 {
+  margin-top: 0;
+  color: #333;
+}
+
+.action-result {
+  margin-top: 1rem;
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.result-icon {
+  font-size: 1.5rem;
+}
+
+.result-data {
+  margin-top: 1rem;
+}
+
+.result-data details {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.result-data summary {
+  cursor: pointer;
+  font-weight: 500;
+  padding: 0.5rem;
+  user-select: none;
+}
+
+.result-data summary:hover {
+  background: #f5f5f5;
+}
+
+.result-data pre {
+  margin: 0.5rem 0 0;
+  padding: 1rem;
+  background: #f5f5f5;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 0.9rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.result-meta {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.history-action-result {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.action-success {
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border-left: 4px solid #4caf50;
+}
+
+.action-error {
+  background: #ffebee;
+  color: #c62828;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border-left: 4px solid #f44336;
+}
+
+.action-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.action-icon {
+  font-size: 1.3rem;
+  font-weight: bold;
+}
+
+.action-data {
+  margin-top: 0.75rem;
+}
+
+.action-data details {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  padding: 0.5rem;
+}
+
+.action-data summary {
+  cursor: pointer;
+  font-weight: 500;
+  padding: 0.25rem;
+  user-select: none;
+  font-size: 0.85rem;
+}
+
+.action-data summary:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+.action-data pre {
+  margin: 0.5rem 0 0;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 0.75rem;
+  max-height: 200px;
+  overflow-y: auto;
+  color: #333;
+}
+
+.action-meta {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  margin-top: 0.5rem;
+  font-style: italic;
+}
+
+.action-error-msg {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  word-break: break-word;
 }
 </style>

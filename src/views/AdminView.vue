@@ -1,15 +1,13 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import { useWorkflowStore } from '@/stores/workflow';
+import { useWorkflows } from '@/composables/useWorkflows';
 import WorkflowEditor from '@/components/workflow/WorkflowEditor.vue';
-import type { Workflow } from '@/types/workflow.types';
+import type { Workflow, WorkflowDefinition } from '@/types/workflow.types';
 
 const workflowStore = useWorkflowStore();
+const backendWorkflows = useWorkflows();
 
-// Load workflows on mount
-onMounted(async () => {
-  await workflowStore.loadWorkflows();
-});
 const isSaving = ref(false);
 
 const showCreateModal = ref(false);
@@ -23,7 +21,27 @@ const newWorkflow = ref({
   category: 'Allgemein',
 });
 
-const workflows = computed(() => workflowStore.workflows);
+// Verwende direkt die reaktiven Workflows aus useWorkflows (Vue Query)
+const workflows = computed(() => {
+  const data = backendWorkflows.workflows.value || [];
+  
+  // Konvertiere zu Workflow-Format für die Anzeige
+  return data.map((cat: any): Workflow => {
+    const definition = cat.data || { version: '1.0.0', nodes: [], edges: [], metadata: {} };
+    
+    return {
+      id: cat.id,
+      name: cat.name,
+      description: definition.metadata?.description || '',
+      category: definition.metadata?.category || 'Allgemein',
+      definition,
+      createdAt: new Date(definition.metadata?.createdAt || Date.now()),
+      updatedAt: new Date(definition.metadata?.updatedAt || Date.now()),
+      createdBy: definition.metadata?.createdBy || 'unknown',
+      valueId: cat.valueId // CustomDataValue ID für Löschung
+    };
+  });
+});
 
 function openCreateModal() {
   newWorkflow.value = { name: '', description: '', category: 'Allgemein' };
@@ -34,13 +52,31 @@ async function createWorkflow() {
   if (!newWorkflow.value.name) return;
 
   try {
-    await workflowStore.createWorkflow(
-      newWorkflow.value.name, 
-      newWorkflow.value.description,
-      newWorkflow.value.category
-    );
+    const definition: WorkflowDefinition = {
+      version: '1.0.0',
+      nodes: [],
+      edges: [],
+      metadata: {
+        description: newWorkflow.value.description,
+        category: newWorkflow.value.category,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        createdBy: 'current-user'
+      }
+    };
+    
+    const newWorkflowId = await backendWorkflows.createWorkflow(newWorkflow.value.name, definition);
     showCreateModal.value = false;
     newWorkflow.value = { name: '', description: '', category: 'Allgemein' };
+    
+    // Warte kurz, damit Vue Query die Daten laden kann
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Öffne den Editor automatisch für den neuen Workflow
+    const createdWorkflow = workflows.value.find(w => w.id === newWorkflowId);
+    if (createdWorkflow) {
+      openEditModal(createdWorkflow);
+    }
   } catch (error) {
     console.error('Failed to create workflow:', error);
     alert('Fehler beim Erstellen des Workflows.');
@@ -76,8 +112,7 @@ function cancelEdit() {
   showEditModal.value = false;
   selectedWorkflow.value = null;
   workflowStore.setCurrentWorkflow(null);
-  // Reload to discard changes
-  workflowStore.loadWorkflows();
+  // Note: No need to reload - Vue Query handles reactivity
 }
 
 function openDeleteModal(workflow: Workflow) {
@@ -89,7 +124,7 @@ async function deleteWorkflow() {
   if (!selectedWorkflow.value) return;
 
   try {
-    await workflowStore.deleteWorkflow(selectedWorkflow.value.id);
+    await backendWorkflows.deleteWorkflow(selectedWorkflow.value.id);
     showDeleteModal.value = false;
     selectedWorkflow.value = null;
   } catch (error) {

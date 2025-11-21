@@ -149,6 +149,7 @@ export async function deleteCustomDataCategory(
   moduleId = await resolveModuleId(moduleId);
   await churchtoolsClient.deleteApi(
     `/custommodules/${moduleId}/customdatacategories/${dataCategoryId}`,
+    { categoryId: dataCategoryId }
   );
   console.log(`Deleted category ${dataCategoryId} from module ${moduleId}`);
 }

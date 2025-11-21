@@ -11,10 +11,38 @@ const executionStore = useExecutionStore();
 
 const showExecutor = ref(false);
 
+// Note: Workflows are loaded automatically via useWorkflows (Vue Query)
+// No need for manual loadWorkflows() call
+
 const availableWorkflows = computed(() => {
-  return workflowStore.workflows.filter((workflow) =>
-    userStore.canExecuteWorkflow(workflow.id)
-  );
+  console.log('[UserView] Computing available workflows...');
+  console.log('[UserView] Total workflows:', workflowStore.workflows.length);
+  console.log('[UserView] Workflows:', workflowStore.workflows);
+  console.log('[UserView] Current user:', userStore.currentUser);
+  console.log('[UserView] Is admin:', userStore.isAdmin);
+  console.log('[UserView] Permissions:', userStore.permissions);
+  
+  // Expand permissions to see details
+  if (userStore.permissions.length > 0) {
+    console.log('[UserView] Permission details:');
+    userStore.permissions.forEach((perm, index) => {
+      console.log(`  [${index}]:`, perm);
+    });
+  }
+  
+  const filtered = workflowStore.workflows.filter((workflow) => {
+    const canExecute = userStore.canExecuteWorkflow(workflow.id);
+    console.log(`[UserView] Workflow ${workflow.id} (${workflow.name}): canExecute=${canExecute}`);
+    return canExecute;
+  });
+  
+  console.log('[UserView] Available workflows:', filtered.length);
+  
+  if (workflowStore.workflows.length === 0) {
+    console.warn('[UserView] ⚠️ No workflows loaded! Check if workflows exist in ChurchTools.');
+  }
+  
+  return filtered;
 });
 
 const currentExecution = computed(() => executionStore.currentExecution);

@@ -7,11 +7,33 @@ export const useWorkflowStore = defineStore('workflow', () => {
   // Backend workflows composable
   const backendWorkflows = useWorkflows();
   
-  // State - Simple ref array (like before, but with backend sync)
-  const workflows = ref<Workflow[]>([]);
+  // State
   const currentWorkflowId = ref<number | null>(null);
-  const isLoading = ref(false);
   const isSaving = ref(false);
+
+  // Workflows direkt aus backendWorkflows (reaktiv!)
+  const workflows = computed(() => {
+    const data = backendWorkflows.workflows.value || [];
+    
+    // Konvertiere zu Workflow-Format
+    return data.map((cat: any): Workflow => {
+      const definition = cat.data || { version: '1.0.0', nodes: [], edges: [], metadata: {} };
+      
+      return {
+        id: cat.id,
+        name: cat.name,
+        description: definition.metadata?.description || '',
+        category: definition.metadata?.category || 'Allgemein',
+        definition,
+        createdAt: new Date(definition.metadata?.createdAt || Date.now()),
+        updatedAt: new Date(definition.metadata?.updatedAt || Date.now()),
+        createdBy: definition.metadata?.createdBy || 'unknown',
+        valueId: cat.valueId
+      };
+    });
+  });
+
+  const isLoading = computed(() => backendWorkflows.isLoading.value);
 
   // Getters
   const currentWorkflow = computed(() => {
@@ -23,68 +45,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     return workflows.value.find((w) => w.id === id);
   };
 
-  // Load workflows from backend into ref array
-  async function loadWorkflows() {
-    isLoading.value = true;
-    try {
-      console.log('[workflowStore] Loading workflows from backend');
-      
-      // Wait for backend query with longer timeout
-      let attempts = 0;
-      while (backendWorkflows.isLoading.value && attempts < 100) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        attempts++;
-      }
-      
-      // Wait a bit more for data to populate
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      const backendData = backendWorkflows.workflows.value || [];
-      console.log('[workflowStore] Backend data:', backendData);
-      
-      // Convert backend data to Workflow format
-      workflows.value = backendData.map((cat: any): Workflow => {
-        // Check for corrupted workflows
-        if (!cat.data || typeof cat.data !== 'object') {
-          console.error(`[workflowStore] Corrupted workflow: ${cat.name} (ID: ${cat.id})`);
-          return {
-            id: cat.id,
-            name: cat.name,
-            description: 'Fehlerhafter Workflow',
-            category: 'Fehler',
-            definition: { version: '1.0.0', nodes: [], edges: [], metadata: {} },
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            createdBy: 'unknown',
-            isCorrupted: true,
-            corruptionReason: 'Ungültige oder fehlende Definition'
-          };
-        }
-        
-        const definition = cat.data;
-        if (!definition.nodes) definition.nodes = [];
-        if (!definition.edges) definition.edges = [];
-        if (!definition.metadata) definition.metadata = {};
-        
-        return {
-          id: cat.id,
-          name: cat.name,
-          description: definition.metadata?.description || '',
-          category: definition.metadata?.category || 'Allgemein',
-          definition,
-          createdAt: new Date(definition.metadata?.createdAt || Date.now()),
-          updatedAt: new Date(definition.metadata?.updatedAt || Date.now()),
-          createdBy: definition.metadata?.createdBy || 'unknown'
-        };
-      });
-      
-      console.log('[workflowStore] Loaded workflows:', workflows.value);
-    } catch (error) {
-      console.error('[workflowStore] Failed to load workflows:', error);
-    } finally {
-      isLoading.value = false;
-    }
-  }
+  // Note: loadWorkflows() is no longer needed - workflows are loaded automatically via useWorkflows
 
   // Save workflow to backend
   async function saveWorkflow(id: number) {
@@ -108,8 +69,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
       await backendWorkflows.updateWorkflow(id, definition);
       console.log('[workflowStore] Workflow saved successfully');
       
-      // Reload from backend
-      await loadWorkflows();
+      // Note: No need to reload - workflows computed property is reactive
     } catch (error) {
       console.error('[workflowStore] Failed to save workflow:', error);
       throw error;
@@ -133,13 +93,8 @@ export const useWorkflowStore = defineStore('workflow', () => {
       }
     };
 
-    await backendWorkflows.createWorkflow(name, definition);
-    await loadWorkflows();
-  }
-
-  function addWorkflow(workflow: Workflow) {
-    workflows.value.push(workflow);
-    // Note: Call saveWorkflow() manually to persist to backend
+    return await backendWorkflows.createWorkflow(name, definition);
+    // Note: No need to reload - workflows computed property is reactive
   }
 
   function getAllWorkflows(): Workflow[] {
@@ -157,7 +112,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
 
   async function deleteWorkflow(id: number) {
     await backendWorkflows.deleteWorkflow(id);
-    await loadWorkflows();
+    // Note: No need to reload - workflows computed property is reactive
     if (currentWorkflowId.value === id) {
       currentWorkflowId.value = null;
     }
@@ -223,9 +178,6 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
-  // Don't load on init - let AdminView trigger it
-  // loadWorkflows();
-
   return {
     // State
     workflows,
@@ -239,13 +191,11 @@ export const useWorkflowStore = defineStore('workflow', () => {
     getAllWorkflows,
 
     // Actions - Backend
-    loadWorkflows,
     saveWorkflow,
     createWorkflow,
     deleteWorkflow,
     
     // Actions - Local (Editor)
-    addWorkflow,
     updateWorkflow,
     setCurrentWorkflow,
     addNode,

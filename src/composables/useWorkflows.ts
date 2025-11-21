@@ -8,6 +8,7 @@ import {
   getCustomDataValues,
   createCustomDataValue,
   updateCustomDataValue,
+  deleteCustomDataValue,
 } from '@/utils/kv-store';
 
 /**
@@ -101,7 +102,7 @@ export function useWorkflows() {
   
   const workflows = computed(() => workflowsData.value ?? []);
   
-  const createWorkflow = async (name: string, definition: WorkflowDefinition) => {
+  const createWorkflow = async (name: string, definition: WorkflowDefinition): Promise<number> => {
     console.log('[useWorkflows] createWorkflow called:', { name, definition, moduleId: moduleId.value });
     
     if (!moduleId.value) {
@@ -145,6 +146,9 @@ export function useWorkflows() {
       
       // Invalidate query to refetch
       queryClient.invalidateQueries({ queryKey: ['workflows', moduleId] });
+      
+      // Gib die ID des neuen Workflows zurück
+      return newCategory.id;
     } catch (error) {
       console.error('[useWorkflows] Failed to create workflow:', error);
       throw error;
@@ -203,10 +207,24 @@ export function useWorkflows() {
     }
     
     try {
-      // Lösche die Kategorie (Values werden automatisch mitgelöscht)
+      console.log(`[useWorkflows] Deleting workflow ${id}...`);
+      
+      // 1. Finde den Workflow und seine valueId
+      const workflow = workflows.value.find((w: any) => w.id === id);
+      
+      if (workflow?.valueId) {
+        // 2. Lösche zuerst den CustomDataValue
+        console.log(`[useWorkflows] Deleting value ${workflow.valueId} for workflow ${id}`);
+        await deleteCustomDataValue(id, workflow.valueId, moduleId.value);
+      } else {
+        console.warn(`[useWorkflows] Workflow ${id} has no valueId, skipping value deletion`);
+      }
+      
+      // 3. Lösche dann die Kategorie
+      console.log(`[useWorkflows] Deleting category ${id}`);
       await deleteCustomDataCategory(id, moduleId.value);
       
-      console.log('[useWorkflows] Deleted workflow');
+      console.log('[useWorkflows] Deleted workflow successfully');
       
       // Invalidate query to refetch
       queryClient.invalidateQueries({ queryKey: ['workflows', moduleId] });

@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { churchtoolsClient } from '@churchtools/churchtools-client';
-import type { User, WorkflowPermission } from '@/types/user.types';
+import type { User } from '@/types/user.types';
 import { UserRole } from '@/types/user.types';
+import { usePermissions } from '@/composables/usePermissions';
 
 export const useUserStore = defineStore('user', () => {
   // State
@@ -13,17 +14,29 @@ export const useUserStore = defineStore('user', () => {
     role: UserRole.USER, // Change to UserRole.ADMIN to test admin view
   });
 
-  const permissions = ref<WorkflowPermission[]>([]);
+  // Use TanStack Query for permissions (with caching)
+  const userId = computed(() => currentUser.value.id);
+  const permissionsQuery = usePermissions(userId);
+  const permissions = permissionsQuery.permissions;
 
   // Getters
   const isAdmin = computed(() => currentUser.value.role === UserRole.ADMIN);
 
   const canExecuteWorkflow = (workflowId: number): boolean => {
-    if (isAdmin.value) return true;
+    console.log(`[userStore] canExecuteWorkflow(${workflowId})`);
+    console.log(`[userStore] isAdmin: ${isAdmin.value}`);
+    
+    if (isAdmin.value) {
+      console.log(`[userStore] → true (admin bypass)`);
+      return true;
+    }
 
     const permission = permissions.value.find(
       (p) => p.workflowId === workflowId && p.userId === currentUser.value.id
     );
+    
+    console.log(`[userStore] Found permission:`, permission);
+    console.log(`[userStore] → ${permission?.canExecute ?? false}`);
 
     return permission?.canExecute ?? false;
   };
@@ -74,48 +87,31 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  function grantPermission(workflowId: number, userId: string, canExecute = true, canView = true) {
-    const existing = permissions.value.find(
-      (p) => p.workflowId === workflowId && p.userId === userId
-    );
+  // fetchPermissions is now handled by TanStack Query in usePermissions composable
+  // No need for manual fetching, caching, or LocalStorage management
 
-    if (existing) {
-      existing.canExecute = canExecute;
-      existing.canView = canView;
-    } else {
-      permissions.value.push({
-        workflowId,
-        userId,
-        canExecute,
-        canView,
-      });
-    }
-
-    saveToLocalStorage();
+  // Note: grantPermission, revokePermission are kept for potential admin UI
+  // but they don't affect the actual permissions from backend
+  function grantPermission() {
+    console.warn('[userStore] grantPermission is deprecated - permissions come from ChurchTools backend');
+    // This function is kept for backwards compatibility but does nothing
   }
 
-  function revokePermission(workflowId: number, userId: string) {
-    const index = permissions.value.findIndex(
-      (p) => p.workflowId === workflowId && p.userId === userId
-    );
-
-    if (index > -1) {
-      permissions.value.splice(index, 1);
-      saveToLocalStorage();
-    }
+  function revokePermission() {
+    console.warn('[userStore] revokePermission is deprecated - permissions come from ChurchTools backend');
+    // This function is kept for backwards compatibility but does nothing
   }
 
-  function grantAllWorkflows(_userId: string) {
-    // This would typically fetch all workflow IDs
-    // For demo, we'll just mark the user as having access
-    saveToLocalStorage();
+  function grantAllWorkflows() {
+    console.warn('[userStore] grantAllWorkflows is deprecated - permissions come from ChurchTools backend');
+    // This function is kept for backwards compatibility but does nothing
   }
 
-  // LocalStorage
+  // LocalStorage for user only (not permissions)
   function saveToLocalStorage() {
     try {
       localStorage.setItem('currentUser', JSON.stringify(currentUser.value));
-      localStorage.setItem('permissions', JSON.stringify(permissions.value));
+      // Permissions are NOT stored in LocalStorage anymore - TanStack Query handles caching
     } catch (error) {
       console.error('Failed to save user data to localStorage:', error);
     }
@@ -127,11 +123,7 @@ export const useUserStore = defineStore('user', () => {
       if (storedUser) {
         currentUser.value = JSON.parse(storedUser);
       }
-
-      const storedPermissions = localStorage.getItem('permissions');
-      if (storedPermissions) {
-        permissions.value = JSON.parse(storedPermissions);
-      }
+      // Permissions are NOT loaded from LocalStorage - they come from TanStack Query
     } catch (error) {
       console.error('Failed to load user data from localStorage:', error);
     }
@@ -155,6 +147,7 @@ export const useUserStore = defineStore('user', () => {
     setUser,
     setUserRole,
     fetchCurrentUser,
+    // fetchPermissions removed - handled by TanStack Query
     grantPermission,
     revokePermission,
     grantAllWorkflows,

@@ -3,7 +3,7 @@
  */
 
 export interface Workflow {
-  id: number; // Backend-ID
+  id: number; // Backend-ID (CustomDataCategory ID)
   name: string;
   description: string;
   category: string;
@@ -11,6 +11,7 @@ export interface Workflow {
   createdAt: Date;
   updatedAt: Date;
   createdBy?: string;
+  valueId?: number; // CustomDataValue ID where definition is stored
   isCorrupted?: boolean; // Marks workflows with invalid data
   corruptionReason?: string; // Reason why workflow is corrupted
 }
@@ -106,6 +107,12 @@ export interface FormField {
   // For FILE
   accept?: string;
   multiple?: boolean;
+  // For PERSON, PERSON_MULTI
+  personFilter?: {
+    groupIds?: number[];
+    statusIds?: number[];
+    campusIds?: number[];
+  };
 }
 
 export interface Condition {
@@ -148,6 +155,8 @@ export enum FieldType {
   COLOR = 'color',
   FILE = 'file',
   DISPLAY = 'display', // Read-only Informationsfeld mit Markdown + Interpolation
+  PERSON = 'person', // ChurchTools Person Einzelauswahl
+  PERSON_MULTI = 'person-multi', // ChurchTools Person Mehrfachauswahl
 }
 
 export enum ConditionOperator {
