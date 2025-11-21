@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue';
 import type { ActionContext } from '@/types/action-plugin.types';
 import PlaceholderDropdown from '@/components/workflow/PlaceholderDropdown.vue';
+import { openApiService } from '@/services/OpenApiService';
 
 interface Props {
   config: {
@@ -81,54 +82,13 @@ const selectEndpoint = (endpoint: string) => {
   updateConfig();
 };
 
-// Lade Endpoints aus OpenAPI-Spezifikation
+// Lade Endpoints aus OpenAPI-Spezifikation (cached)
 onMounted(async () => {
   isLoadingEndpoints.value = true;
   try {
-    const response = await fetch('/system/runtime/swagger/openapi.json');
-    const openapi = await response.json();
-    
-    const endpoints: Array<{ value: string; label: string }> = [];
-    
-    // Extrahiere alle Pfade aus der OpenAPI-Spezifikation
-    if (openapi.paths) {
-      Object.keys(openapi.paths).forEach(path => {
-        const methods = openapi.paths[path];
-        const methodsList = Object.keys(methods).filter(m => 
-          ['get', 'post', 'put', 'patch', 'delete'].includes(m.toLowerCase())
-        );
-        
-        // Erstelle Label aus summary oder operationId
-        const firstMethod = methods[methodsList[0]];
-        const label = firstMethod?.summary || firstMethod?.operationId || path;
-        
-        endpoints.push({
-          value: path,
-          label: `${label} (${path})`
-        });
-      });
-    }
-    
-    // Sortiere alphabetisch
-    endpoints.sort((a, b) => a.value.localeCompare(b.value));
-    
-    commonEndpoints.value = endpoints;
-    console.log(`[ChurchToolsApi] Loaded ${endpoints.length} endpoints from OpenAPI spec`);
+    commonEndpoints.value = await openApiService.getEndpoints();
   } catch (error) {
-    console.error('[ChurchToolsApi] Failed to load OpenAPI spec:', error);
-    // Fallback zu statischen Endpoints
-    commonEndpoints.value = [
-      { value: '/persons', label: 'Personen' },
-      { value: '/persons/{id}', label: 'Person (einzeln)' },
-      { value: '/groups', label: 'Gruppen' },
-      { value: '/groups/{id}', label: 'Gruppe (einzeln)' },
-      { value: '/groups/{id}/members', label: 'Gruppenmitglieder' },
-      { value: '/events', label: 'Events' },
-      { value: '/events/{id}', label: 'Event (einzeln)' },
-      { value: '/custommodules', label: 'Custom Modules' },
-      { value: '/whoami', label: 'Aktueller User' },
-      { value: '/permissions/global', label: 'Globale Berechtigungen' },
-    ];
+    console.error('[ChurchToolsApi] Failed to load endpoints:', error);
   } finally {
     isLoadingEndpoints.value = false;
   }
