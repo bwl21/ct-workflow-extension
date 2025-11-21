@@ -7,6 +7,10 @@ export interface Person {
   nickname?: string;
   email?: string;
   imageUrl?: string;
+  // Adresse der Person selbst
+  street?: string;
+  zip?: string;
+  city?: string;
 }
 
 export interface PersonSearchParams {
@@ -55,6 +59,10 @@ export class PersonService {
         nickname: p.nickname,
         email: p.email,
         imageUrl: p.imageUrl,
+        street: p.street,
+        zip: p.zip,
+        city: p.city,
+        // Eltern-Daten werden nur bei getPerson() geladen (zu aufwändig für Liste)
       }));
     } catch (error) {
       console.error('Failed to search persons:', error);
@@ -78,6 +86,9 @@ export class PersonService {
         nickname: p.nickname,
         email: p.email,
         imageUrl: p.imageUrl,
+        street: p.street,
+        zip: p.zip,
+        city: p.city,
       };
     } catch (error) {
       console.error(`Failed to get person ${id}:`, error);
