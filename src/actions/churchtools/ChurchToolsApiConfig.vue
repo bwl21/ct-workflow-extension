@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import type { ActionContext } from '@/types/action-plugin.types';
 import PlaceholderDropdown from '@/components/workflow/PlaceholderDropdown.vue';
 
@@ -53,19 +53,62 @@ const formatVariable = (v: string) => {
   return `{{${v}}}`;
 };
 
-// Häufige ChurchTools Endpoints
-const commonEndpoints = [
-  { value: '/persons', label: 'Personen' },
-  { value: '/persons/{id}', label: 'Person (einzeln)' },
-  { value: '/groups', label: 'Gruppen' },
-  { value: '/groups/{id}', label: 'Gruppe (einzeln)' },
-  { value: '/groups/{id}/members', label: 'Gruppenmitglieder' },
-  { value: '/events', label: 'Events' },
-  { value: '/events/{id}', label: 'Event (einzeln)' },
-  { value: '/custommodules', label: 'Custom Modules' },
-  { value: '/whoami', label: 'Aktueller User' },
-  { value: '/permissions/global', label: 'Globale Berechtigungen' },
-];
+// ChurchTools Endpoints aus OpenAPI-Spezifikation
+const commonEndpoints = ref<Array<{ value: string; label: string }>>([]);
+const isLoadingEndpoints = ref(false);
+
+// Lade Endpoints aus OpenAPI-Spezifikation
+onMounted(async () => {
+  isLoadingEndpoints.value = true;
+  try {
+    const response = await fetch('/system/runtime/swagger/openapi.json');
+    const openapi = await response.json();
+    
+    const endpoints: Array<{ value: string; label: string }> = [];
+    
+    // Extrahiere alle Pfade aus der OpenAPI-Spezifikation
+    if (openapi.paths) {
+      Object.keys(openapi.paths).forEach(path => {
+        const methods = openapi.paths[path];
+        const methodsList = Object.keys(methods).filter(m => 
+          ['get', 'post', 'put', 'patch', 'delete'].includes(m.toLowerCase())
+        );
+        
+        // Erstelle Label aus summary oder operationId
+        const firstMethod = methods[methodsList[0]];
+        const label = firstMethod?.summary || firstMethod?.operationId || path;
+        
+        endpoints.push({
+          value: path,
+          label: `${label} (${path})`
+        });
+      });
+    }
+    
+    // Sortiere alphabetisch
+    endpoints.sort((a, b) => a.value.localeCompare(b.value));
+    
+    commonEndpoints.value = endpoints;
+    console.log(`[ChurchToolsApi] Loaded ${endpoints.length} endpoints from OpenAPI spec`);
+  } catch (error) {
+    console.error('[ChurchToolsApi] Failed to load OpenAPI spec:', error);
+    // Fallback zu statischen Endpoints
+    commonEndpoints.value = [
+      { value: '/persons', label: 'Personen' },
+      { value: '/persons/{id}', label: 'Person (einzeln)' },
+      { value: '/groups', label: 'Gruppen' },
+      { value: '/groups/{id}', label: 'Gruppe (einzeln)' },
+      { value: '/groups/{id}/members', label: 'Gruppenmitglieder' },
+      { value: '/events', label: 'Events' },
+      { value: '/events/{id}', label: 'Event (einzeln)' },
+      { value: '/custommodules', label: 'Custom Modules' },
+      { value: '/whoami', label: 'Aktueller User' },
+      { value: '/permissions/global', label: 'Globale Berechtigungen' },
+    ];
+  } finally {
+    isLoadingEndpoints.value = false;
+  }
+});
 
 const addParam = () => {
   const newKey = `param${Object.keys(localConfig.value.params).length + 1}`;
@@ -159,6 +202,9 @@ const insertPlaceholder = (variable: string) => {
           {{ ep.label }}
         </option>
       </datalist>
+      <small v-if="isLoadingEndpoints" class="ct-form-text">
+        Lade Endpoints aus OpenAPI-Spezifikation...
+      </small>
       <small class="ct-form-text">
         Ohne <code>/api</code> Prefix (wird automatisch hinzugefügt).
         Verfügbare Variablen: <code v-for="v in availableVariables" :key="v">{{ formatVariable(v) }}</code>
