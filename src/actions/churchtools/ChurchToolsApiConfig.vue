@@ -56,6 +56,30 @@ const formatVariable = (v: string) => {
 // ChurchTools Endpoints aus OpenAPI-Spezifikation
 const commonEndpoints = ref<Array<{ value: string; label: string }>>([]);
 const isLoadingEndpoints = ref(false);
+const endpointSearch = ref('');
+const showEndpointDropdown = ref(false);
+
+// Gefilterte Endpoints basierend auf Suche
+const filteredEndpoints = computed(() => {
+  if (!endpointSearch.value) {
+    return commonEndpoints.value.slice(0, 50); // Zeige erste 50
+  }
+  
+  const search = endpointSearch.value.toLowerCase();
+  return commonEndpoints.value
+    .filter(ep => 
+      ep.value.toLowerCase().includes(search) || 
+      ep.label.toLowerCase().includes(search)
+    )
+    .slice(0, 50); // Maximal 50 Ergebnisse
+});
+
+const selectEndpoint = (endpoint: string) => {
+  localConfig.value.endpoint = endpoint;
+  endpointSearch.value = '';
+  showEndpointDropdown.value = false;
+  updateConfig();
+};
 
 // Lade Endpoints aus OpenAPI-Spezifikation
 onMounted(async () => {
@@ -189,21 +213,54 @@ const insertPlaceholder = (variable: string) => {
 
     <div class="ct-form-group">
       <label class="ct-form-label">Endpoint</label>
-      <input
-        v-model="localConfig.endpoint"
-        type="text"
-        class="ct-form-control"
-        placeholder="/persons"
-        list="common-endpoints"
-        @blur="updateConfig"
-      />
-      <datalist id="common-endpoints">
-        <option v-for="ep in commonEndpoints" :key="ep.value" :value="ep.value">
-          {{ ep.label }}
-        </option>
-      </datalist>
+      <div class="endpoint-selector">
+        <input
+          v-model="localConfig.endpoint"
+          type="text"
+          class="ct-form-control"
+          placeholder="/persons"
+          @blur="updateConfig"
+          @focus="showEndpointDropdown = false"
+        />
+        <button 
+          type="button" 
+          class="ct-btn ct-btn-secondary"
+          @click="showEndpointDropdown = !showEndpointDropdown"
+          :disabled="isLoadingEndpoints"
+        >
+          {{ isLoadingEndpoints ? '...' : '📋' }}
+        </button>
+      </div>
+      
+      <div v-if="showEndpointDropdown" class="endpoint-dropdown">
+        <input
+          v-model="endpointSearch"
+          type="text"
+          class="ct-form-control"
+          placeholder="Suche Endpoint..."
+          @keydown.esc="showEndpointDropdown = false"
+        />
+        <div class="endpoint-list">
+          <div 
+            v-for="ep in filteredEndpoints" 
+            :key="ep.value"
+            class="endpoint-item"
+            @click="selectEndpoint(ep.value)"
+          >
+            <strong>{{ ep.value }}</strong>
+            <small>{{ ep.label }}</small>
+          </div>
+          <div v-if="filteredEndpoints.length === 0" class="endpoint-item-empty">
+            Keine Endpoints gefunden
+          </div>
+          <div v-if="!endpointSearch && commonEndpoints.length > 50" class="endpoint-item-info">
+            Zeige erste 50 von {{ commonEndpoints.length }} Endpoints. Nutze die Suche für mehr.
+          </div>
+        </div>
+      </div>
+      
       <small v-if="isLoadingEndpoints" class="ct-form-text">
-        Lade Endpoints aus OpenAPI-Spezifikation...
+        Lade {{ commonEndpoints.length }} Endpoints aus OpenAPI-Spezifikation...
       </small>
       <small class="ct-form-text">
         Ohne <code>/api</code> Prefix (wird automatisch hinzugefügt).
@@ -300,6 +357,76 @@ const insertPlaceholder = (variable: string) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.5rem;
+}
+
+.endpoint-selector {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.endpoint-selector input {
+  flex: 1;
+}
+
+.endpoint-selector button {
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.endpoint-dropdown {
+  position: relative;
+  margin-top: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  z-index: 1000;
+}
+
+.endpoint-dropdown input {
+  margin: 0.5rem;
+  width: calc(100% - 1rem);
+}
+
+.endpoint-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.endpoint-item {
+  padding: 0.75rem;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.endpoint-item:hover {
+  background-color: #f5f5f5;
+}
+
+.endpoint-item strong {
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.endpoint-item small {
+  color: #666;
+  font-size: 0.8rem;
+}
+
+.endpoint-item-empty,
+.endpoint-item-info {
+  padding: 0.75rem;
+  text-align: center;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.endpoint-item-info {
+  background-color: #f9f9f9;
+  border-top: 1px solid #eee;
 }
 
 .param-row {
