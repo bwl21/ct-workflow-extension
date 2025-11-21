@@ -19,6 +19,14 @@ export default ({ mode }) => {
             host: '0.0.0.0',
             port: 5173,
             allowedHosts: true,
+            proxy: {
+                // Proxy für OpenAPI-Spezifikation (CORS-Workaround)
+                '/system/runtime/swagger/openapi.json': {
+                    target: process.env.VITE_BASE_URL || 'https://testbernhard.church.tools',
+                    changeOrigin: true,
+                    secure: false,
+                },
+            },
         },
     });
 };

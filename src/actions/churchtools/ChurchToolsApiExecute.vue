@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { churchtoolsClient } from '@churchtools/churchtools-client';
 import type { ActionContext, ActionResult } from '@/types/action-plugin.types';
+import { interpolate } from '@/utils/template-interpolation';
 
 const props = defineProps<{
   config: {
@@ -10,6 +11,7 @@ const props = defineProps<{
     params: Record<string, string>;
     body: any;
     responseMapping: Record<string, string>;
+    responseVariable?: string;
   };
   context: ActionContext;
 }>();
@@ -24,15 +26,18 @@ const message = ref('');
 const responseData = ref<any>(null);
 
 /**
- * Interpoliert Variablen in einem String
+ * Interpoliert Variablen in einem String (unterstützt verschachtelte Properties)
  */
 const interpolateVariables = (str: string): string => {
   if (typeof str !== 'string') return str;
   
-  return str.replace(/\{\{(\w+)\}\}/g, (match, varName) => {
-    const value = props.context.helpers.getVariable(varName);
-    return value !== undefined ? String(value) : match;
-  });
+  console.log('[ChurchToolsApi] Interpolating:', str);
+  console.log('[ChurchToolsApi] Context:', props.context.workflowContext);
+  
+  const result = interpolate(str, props.context.workflowContext);
+  
+  console.log('[ChurchToolsApi] Result:', result);
+  return result;
 };
 
 /**
@@ -83,31 +88,31 @@ const execute = async () => {
       }
 
       case 'POST': {
-        const body = interpolateObject(
-          typeof props.config.body === 'string'
-            ? JSON.parse(props.config.body)
-            : props.config.body
-        );
+        // Interpoliere ZUERST den String, DANN parse JSON
+        const bodyString = typeof props.config.body === 'string'
+          ? interpolateVariables(props.config.body)
+          : JSON.stringify(props.config.body);
+        const body = JSON.parse(bodyString);
         response = await churchtoolsClient.post(endpoint, body);
         break;
       }
 
       case 'PUT': {
-        const body = interpolateObject(
-          typeof props.config.body === 'string'
-            ? JSON.parse(props.config.body)
-            : props.config.body
-        );
+        // Interpoliere ZUERST den String, DANN parse JSON
+        const bodyString = typeof props.config.body === 'string'
+          ? interpolateVariables(props.config.body)
+          : JSON.stringify(props.config.body);
+        const body = JSON.parse(bodyString);
         response = await churchtoolsClient.put(endpoint, body);
         break;
       }
 
       case 'PATCH': {
-        const body = interpolateObject(
-          typeof props.config.body === 'string'
-            ? JSON.parse(props.config.body)
-            : props.config.body
-        );
+        // Interpoliere ZUERST den String, DANN parse JSON
+        const bodyString = typeof props.config.body === 'string'
+          ? interpolateVariables(props.config.body)
+          : JSON.stringify(props.config.body);
+        const body = JSON.parse(bodyString);
         response = await churchtoolsClient.patch(endpoint, body);
         break;
       }
@@ -124,9 +129,13 @@ const execute = async () => {
     // Extrahiere Response-Daten
     responseData.value = response.data || response;
 
-    // TODO: Response Mapping implementieren
-    // Für jetzt speichern wir die gesamte Response
-    props.context.helpers.setVariable('lastApiResponse', responseData.value);
+    // Speichere Response unter konfiguriertem Variablennamen
+    const variableName = props.config.responseVariable || 'lastApiResponse';
+    props.context.helpers.setVariable(variableName, responseData.value);
+    
+    console.log(`[ChurchToolsApi] Response saved as '${variableName}':`, responseData.value);
+
+    // TODO: Response Mapping implementieren (optional zusätzlich)
 
     status.value = 'success';
     message.value = `${props.config.method} ${endpoint} erfolgreich ausgeführt`;

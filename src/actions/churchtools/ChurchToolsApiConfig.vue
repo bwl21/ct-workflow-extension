@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import type { ActionContext } from '@/types/action-plugin.types';
+import PlaceholderDropdown from '@/components/workflow/PlaceholderDropdown.vue';
+import { openApiService } from '@/services/OpenApiService';
 
 interface Props {
   config: {
@@ -9,6 +11,7 @@ interface Props {
     params: Record<string, string>;
     body: any;
     responseMapping: Record<string, string>;
+    responseVariable?: string; // Name der Variable für Response-Speicherung
   };
   context: ActionContext;
 }
@@ -27,26 +30,69 @@ const updateConfig = () => {
 };
 
 const availableVariables = computed(() => {
-  return Object.keys(props.context.workflowContext);
+  const variables: string[] = [];
+  
+  // Basis-Variablen aus Context
+  Object.keys(props.context.workflowContext).forEach(key => {
+    const value = props.context.workflowContext[key];
+    
+    // Wenn es ein Objekt ist (z.B. Person), füge auch Properties hinzu
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      variables.push(key);
+      Object.keys(value).forEach(prop => {
+        variables.push(`${key}.${prop}`);
+      });
+    } else {
+      variables.push(key);
+    }
+  });
+  
+  return variables;
 });
 
 const formatVariable = (v: string) => {
   return `{{${v}}}`;
 };
 
-// Häufige ChurchTools Endpoints
-const commonEndpoints = [
-  { value: '/persons', label: 'Personen' },
-  { value: '/persons/{id}', label: 'Person (einzeln)' },
-  { value: '/groups', label: 'Gruppen' },
-  { value: '/groups/{id}', label: 'Gruppe (einzeln)' },
-  { value: '/groups/{id}/members', label: 'Gruppenmitglieder' },
-  { value: '/events', label: 'Events' },
-  { value: '/events/{id}', label: 'Event (einzeln)' },
-  { value: '/custommodules', label: 'Custom Modules' },
-  { value: '/whoami', label: 'Aktueller User' },
-  { value: '/permissions/global', label: 'Globale Berechtigungen' },
-];
+// ChurchTools Endpoints aus OpenAPI-Spezifikation
+const commonEndpoints = ref<Array<{ value: string; label: string }>>([]);
+const isLoadingEndpoints = ref(false);
+const endpointSearch = ref('');
+const showEndpointDropdown = ref(false);
+
+// Gefilterte Endpoints basierend auf Suche
+const filteredEndpoints = computed(() => {
+  if (!endpointSearch.value) {
+    return commonEndpoints.value.slice(0, 50); // Zeige erste 50
+  }
+  
+  const search = endpointSearch.value.toLowerCase();
+  return commonEndpoints.value
+    .filter(ep => 
+      ep.value.toLowerCase().includes(search) || 
+      ep.label.toLowerCase().includes(search)
+    )
+    .slice(0, 50); // Maximal 50 Ergebnisse
+});
+
+const selectEndpoint = (endpoint: string) => {
+  localConfig.value.endpoint = endpoint;
+  endpointSearch.value = '';
+  showEndpointDropdown.value = false;
+  updateConfig();
+};
+
+// Lade Endpoints aus OpenAPI-Spezifikation (cached)
+onMounted(async () => {
+  isLoadingEndpoints.value = true;
+  try {
+    commonEndpoints.value = await openApiService.getEndpoints();
+  } catch (error) {
+    console.error('[ChurchToolsApi] Failed to load endpoints:', error);
+  } finally {
+    isLoadingEndpoints.value = false;
+  }
+});
 
 const addParam = () => {
   const newKey = `param${Object.keys(localConfig.value.params).length + 1}`;
@@ -82,6 +128,34 @@ const showBody = computed(() => {
 const showParams = computed(() => {
   return localConfig.value.method === 'GET';
 });
+
+const bodyTextarea = ref<HTMLTextAreaElement>();
+
+const insertPlaceholder = (variable: string) => {
+  const placeholder = `{{${variable}}}`;
+  
+  if (bodyTextarea.value) {
+    const start = bodyTextarea.value.selectionStart;
+    const end = bodyTextarea.value.selectionEnd;
+    const text = localConfig.value.body || '';
+    
+    localConfig.value.body = text.substring(0, start) + placeholder + text.substring(end);
+    updateConfig();
+    
+    // Cursor nach dem Platzhalter setzen
+    setTimeout(() => {
+      if (bodyTextarea.value) {
+        const newPos = start + placeholder.length;
+        bodyTextarea.value.focus();
+        bodyTextarea.value.setSelectionRange(newPos, newPos);
+      }
+    }, 0);
+  } else {
+    // Fallback: Am Ende anhängen
+    localConfig.value.body = (localConfig.value.body || '') + placeholder;
+    updateConfig();
+  }
+};
 </script>
 
 <template>
@@ -99,19 +173,55 @@ const showParams = computed(() => {
 
     <div class="ct-form-group">
       <label class="ct-form-label">Endpoint</label>
-      <input
-        v-model="localConfig.endpoint"
-        type="text"
-        class="ct-form-control"
-        placeholder="/persons"
-        list="common-endpoints"
-        @blur="updateConfig"
-      />
-      <datalist id="common-endpoints">
-        <option v-for="ep in commonEndpoints" :key="ep.value" :value="ep.value">
-          {{ ep.label }}
-        </option>
-      </datalist>
+      <div class="endpoint-selector">
+        <input
+          v-model="localConfig.endpoint"
+          type="text"
+          class="ct-form-control"
+          placeholder="/persons"
+          @blur="updateConfig"
+          @focus="showEndpointDropdown = false"
+        />
+        <button 
+          type="button" 
+          class="ct-btn ct-btn-secondary"
+          @click="showEndpointDropdown = !showEndpointDropdown"
+          :disabled="isLoadingEndpoints"
+        >
+          {{ isLoadingEndpoints ? '...' : '📋' }}
+        </button>
+      </div>
+      
+      <div v-if="showEndpointDropdown" class="endpoint-dropdown">
+        <input
+          v-model="endpointSearch"
+          type="text"
+          class="ct-form-control"
+          placeholder="Suche Endpoint..."
+          @keydown.esc="showEndpointDropdown = false"
+        />
+        <div class="endpoint-list">
+          <div 
+            v-for="ep in filteredEndpoints" 
+            :key="ep.value"
+            class="endpoint-item"
+            @click="selectEndpoint(ep.value)"
+          >
+            <strong>{{ ep.value }}</strong>
+            <small>{{ ep.label }}</small>
+          </div>
+          <div v-if="filteredEndpoints.length === 0" class="endpoint-item-empty">
+            Keine Endpoints gefunden
+          </div>
+          <div v-if="!endpointSearch && commonEndpoints.length > 50" class="endpoint-item-info">
+            Zeige erste 50 von {{ commonEndpoints.length }} Endpoints. Nutze die Suche für mehr.
+          </div>
+        </div>
+      </div>
+      
+      <small v-if="isLoadingEndpoints" class="ct-form-text">
+        Lade {{ commonEndpoints.length }} Endpoints aus OpenAPI-Spezifikation...
+      </small>
       <small class="ct-form-text">
         Ohne <code>/api</code> Prefix (wird automatisch hinzugefügt).
         Verfügbare Variablen: <code v-for="v in availableVariables" :key="v">{{ formatVariable(v) }}</code>
@@ -145,8 +255,15 @@ const showParams = computed(() => {
     </div>
 
     <div v-if="showBody" class="ct-form-group">
-      <label class="ct-form-label">Request Body (JSON)</label>
+      <div class="label-with-dropdown">
+        <label class="ct-form-label">Request Body (JSON)</label>
+        <PlaceholderDropdown
+          :available-variables="availableVariables"
+          @select="insertPlaceholder"
+        />
+      </div>
       <textarea
+        ref="bodyTextarea"
         v-model="localConfig.body"
         class="ct-form-control"
         rows="8"
@@ -159,7 +276,22 @@ const showParams = computed(() => {
     </div>
 
     <div class="ct-form-group">
-      <label class="ct-form-label">Response Mapping</label>
+      <label class="ct-form-label">Response speichern als</label>
+      <input
+        v-model="localConfig.responseVariable"
+        type="text"
+        class="ct-form-control"
+        placeholder="z.B. apiResponse, createdPerson, etc."
+        @blur="updateConfig"
+      />
+      <small class="ct-form-text">
+        Die API-Response wird unter diesem Variablennamen gespeichert und kann in folgenden Schritten 
+        über Platzhalter verwendet werden (z.B. <code>{{'{{'}}apiResponse.id}}</code>)
+      </small>
+    </div>
+
+    <div class="ct-form-group">
+      <label class="ct-form-label">Response Mapping (Optional)</label>
       <small class="ct-form-text">
         Mappe Response-Felder auf Workflow-Variablen (z.B. <code>data.id → personId</code>)
       </small>
@@ -178,6 +310,83 @@ const showParams = computed(() => {
 <style scoped>
 .ct-api-config {
   padding: 1rem;
+}
+
+.label-with-dropdown {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.endpoint-selector {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.endpoint-selector input {
+  flex: 1;
+}
+
+.endpoint-selector button {
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.endpoint-dropdown {
+  position: relative;
+  margin-top: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  z-index: 1000;
+}
+
+.endpoint-dropdown input {
+  margin: 0.5rem;
+  width: calc(100% - 1rem);
+}
+
+.endpoint-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.endpoint-item {
+  padding: 0.75rem;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.endpoint-item:hover {
+  background-color: #f5f5f5;
+}
+
+.endpoint-item strong {
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.endpoint-item small {
+  color: #666;
+  font-size: 0.8rem;
+}
+
+.endpoint-item-empty,
+.endpoint-item-info {
+  padding: 0.75rem;
+  text-align: center;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.endpoint-item-info {
+  background-color: #f9f9f9;
+  border-top: 1px solid #eee;
 }
 
 .param-row {

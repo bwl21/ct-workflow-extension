@@ -139,7 +139,10 @@ function addPersonProperties(fieldName: string, variables: Set<string>): void {
     'lastName',
     'nickname',
     'email',
-    'imageUrl'
+    'imageUrl',
+    'street',
+    'zip',
+    'city'
   ];
   
   personProperties.forEach(prop => {

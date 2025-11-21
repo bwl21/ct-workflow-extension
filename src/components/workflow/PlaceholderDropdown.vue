@@ -31,7 +31,10 @@ function getPropertyLabel(variable: string): string {
     'lastName': 'Nachname',
     'nickname': 'Spitzname',
     'email': 'E-Mail',
-    'imageUrl': 'Avatar-URL'
+    'imageUrl': 'Avatar-URL',
+    'street': 'Straße',
+    'zip': 'PLZ',
+    'city': 'Ort'
   };
   return labels[property || ''] || property || '';
 }
