@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useWorkflowStore } from '@/stores/workflow';
+import { useExecutionStore } from '@/stores/execution';
 import VueFlowDiagram from './VueFlowDiagram.vue';
 import SimpleRulesEditor from './SimpleRulesEditor.vue';
 import EdgeEditor from './EdgeEditor.vue';
@@ -13,6 +14,7 @@ import { getAvailableVariables } from '@/utils/template-interpolation';
 import { actionRegistry } from '@/services/ActionRegistry';
 
 const workflowStore = useWorkflowStore();
+const executionStore = useExecutionStore(); // Used in getAvailableFields()
 
 const selectedNode = ref<WorkflowNode | null>(null);
 const showNodeEditor = ref(false);
@@ -351,19 +353,104 @@ function saveJsonChanges() {
 function getAvailableFields() {
   if (!currentWorkflow.value || !selectedNode.value) return [];
   
-  const fields: Array<{ name: string; label: string; type: string }> = [];
+  // Use the same logic as PlaceholderDropdown: getAvailableVariables()
+  // This includes TASK fields AND their nested properties (e.g. person.firstName)
+  const variables = getAvailableVariables(currentWorkflow.value.definition, selectedNode.value.id);
   
-  // Collect all fields from all TASK nodes (not just previous ones)
-  for (const node of currentWorkflow.value.definition.nodes) {
-    if (node.type === NodeType.TASK && node.data.fields) {
-      for (const field of node.data.fields) {
-        fields.push({
-          name: field.name,
-          label: `${node.label}: ${field.label}`,
-          type: field.type,
-        });
+  const fields: Array<{ name: string; label: string; type: string }> = [];
+  const seenFields = new Set<string>();
+  
+  // Helper function to get field label from workflow
+  function getFieldLabel(fieldName: string): string {
+    // Check if it's a nested property (e.g. "eltern1.firstName")
+    const baseName = fieldName.split('.')[0];
+    
+    // Find the field in TASK nodes
+    for (const node of currentWorkflow.value!.definition.nodes) {
+      if (node.type === NodeType.TASK && node.data.fields) {
+        const field = node.data.fields.find(f => f.name === baseName);
+        if (field) {
+          if (fieldName.includes('.')) {
+            // Nested property
+            const property = fieldName.split('.').pop();
+            const propertyLabels: Record<string, string> = {
+              'id': 'ID',
+              'firstName': 'Vorname',
+              'lastName': 'Nachname',
+              'nickname': 'Spitzname',
+              'email': 'E-Mail',
+              'imageUrl': 'Bild-URL',
+              'street': 'Straße',
+              'zip': 'PLZ',
+              'city': 'Ort'
+            };
+            return `📝 ${node.label}: ${field.label} → ${propertyLabels[property || ''] || property}`;
+          } else {
+            // Top-level field
+            return `📝 ${node.label}: ${field.label}`;
+          }
+        }
       }
     }
+    
+    // Fallback: Use variable name
+    return fieldName;
+  }
+  
+  // Convert variables to fields format
+  for (const variable of variables) {
+    if (!seenFields.has(variable)) {
+      seenFields.add(variable);
+      fields.push({
+        name: variable,
+        label: getFieldLabel(variable),
+        type: 'string', // Type is determined at runtime
+      });
+    }
+  }
+  
+  // Try to get real execution data from the most recent execution
+  const recentExecutions = executionStore.getWorkflowExecutions(currentWorkflow.value.id);
+  
+  if (recentExecutions.length > 0) {
+    // Use the most recent execution's context
+    const latestExecution = recentExecutions[recentExecutions.length - 1];
+    const contextVars = latestExecution.context.variables;
+    
+    // Flatten all context variables (API responses, etc.)
+    function flattenObject(obj: any, prefix: string = '', maxDepth: number = 3): void {
+      if (!obj || typeof obj !== 'object' || maxDepth <= 0) return;
+      
+      for (const [key, value] of Object.entries(obj)) {
+        const fieldName = prefix ? `${prefix}.${key}` : key;
+        
+        if (seenFields.has(fieldName)) continue;
+        seenFields.add(fieldName);
+        
+        // Add the field
+        fields.push({
+          name: fieldName,
+          label: `⚡ ${fieldName}`,
+          type: typeof value,
+        });
+        
+        // Recursively flatten nested objects
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          flattenObject(value, fieldName, maxDepth - 1);
+        }
+      }
+    }
+    
+    flattenObject(contextVars);
+  }
+  
+  // Add hint if no fields available
+  if (fields.length === 0) {
+    fields.push({
+      name: '',
+      label: '💡 Tipp: Füge TASK-Felder hinzu oder führe den Workflow aus',
+      type: 'hint',
+    });
   }
   
   return fields;

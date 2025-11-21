@@ -24,13 +24,35 @@ export function evaluateSimpleRules(
 }
 
 /**
+ * Gets a nested property value from an object using dot notation
+ * Example: getNestedValue({ user: { name: 'John' } }, 'user.name') => 'John'
+ */
+function getNestedValue(obj: any, path: string): any {
+  if (!path) return undefined;
+  
+  // Split by dots and traverse the object
+  const keys = path.split('.');
+  let value = obj;
+  
+  for (const key of keys) {
+    if (value === null || value === undefined) {
+      return undefined;
+    }
+    value = value[key];
+  }
+  
+  return value;
+}
+
+/**
  * Evaluates a single condition
  */
 function evaluateCondition(
   condition: SimpleCondition,
   context: Record<string, any>
 ): boolean {
-  const fieldValue = context[condition.field];
+  // Support nested properties with dot notation
+  const fieldValue = getNestedValue(context, condition.field);
   const compareValue = condition.value;
 
   switch (condition.operator) {
