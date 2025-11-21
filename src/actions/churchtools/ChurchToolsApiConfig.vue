@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import type { ActionContext } from '@/types/action-plugin.types';
+import PlaceholderDropdown from '@/components/workflow/PlaceholderDropdown.vue';
 
 interface Props {
   config: {
@@ -27,7 +28,24 @@ const updateConfig = () => {
 };
 
 const availableVariables = computed(() => {
-  return Object.keys(props.context.workflowContext);
+  const variables: string[] = [];
+  
+  // Basis-Variablen aus Context
+  Object.keys(props.context.workflowContext).forEach(key => {
+    const value = props.context.workflowContext[key];
+    
+    // Wenn es ein Objekt ist (z.B. Person), füge auch Properties hinzu
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      variables.push(key);
+      Object.keys(value).forEach(prop => {
+        variables.push(`${key}.${prop}`);
+      });
+    } else {
+      variables.push(key);
+    }
+  });
+  
+  return variables;
 });
 
 const formatVariable = (v: string) => {
@@ -82,6 +100,34 @@ const showBody = computed(() => {
 const showParams = computed(() => {
   return localConfig.value.method === 'GET';
 });
+
+const bodyTextarea = ref<HTMLTextAreaElement>();
+
+const insertPlaceholder = (variable: string) => {
+  const placeholder = `{{${variable}}}`;
+  
+  if (bodyTextarea.value) {
+    const start = bodyTextarea.value.selectionStart;
+    const end = bodyTextarea.value.selectionEnd;
+    const text = localConfig.value.body || '';
+    
+    localConfig.value.body = text.substring(0, start) + placeholder + text.substring(end);
+    updateConfig();
+    
+    // Cursor nach dem Platzhalter setzen
+    setTimeout(() => {
+      if (bodyTextarea.value) {
+        const newPos = start + placeholder.length;
+        bodyTextarea.value.focus();
+        bodyTextarea.value.setSelectionRange(newPos, newPos);
+      }
+    }, 0);
+  } else {
+    // Fallback: Am Ende anhängen
+    localConfig.value.body = (localConfig.value.body || '') + placeholder;
+    updateConfig();
+  }
+};
 </script>
 
 <template>
@@ -145,8 +191,15 @@ const showParams = computed(() => {
     </div>
 
     <div v-if="showBody" class="ct-form-group">
-      <label class="ct-form-label">Request Body (JSON)</label>
+      <div class="label-with-dropdown">
+        <label class="ct-form-label">Request Body (JSON)</label>
+        <PlaceholderDropdown
+          :available-variables="availableVariables"
+          @select="insertPlaceholder"
+        />
+      </div>
       <textarea
+        ref="bodyTextarea"
         v-model="localConfig.body"
         class="ct-form-control"
         rows="8"
@@ -178,6 +231,13 @@ const showParams = computed(() => {
 <style scoped>
 .ct-api-config {
   padding: 1rem;
+}
+
+.label-with-dropdown {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
 }
 
 .param-row {
