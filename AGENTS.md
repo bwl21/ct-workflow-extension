@@ -99,3 +99,67 @@ Nur folgende Dateien dürfen im Root-Verzeichnis bleiben:
 - **ZWINGEND:** Vor JEDEM Commit `npm run build` ausführen
 - Build muss erfolgreich sein, sonst NICHT committen
 - Bei Build-Fehlern: Ursache beheben, dann erneut testen
+
+## ChurchTools API Integration
+
+### churchtoolsClient Verwendung
+
+**WICHTIG:** Der `churchtoolsClient` aus `@churchtools/churchtools-client` fügt automatisch das `/api` Prefix zu allen Requests hinzu.
+
+**Richtig:**
+```typescript
+import { churchtoolsClient } from '@churchtools/churchtools-client';
+
+// ✅ Korrekt - wird zu: GET /api/permissions/global
+await churchtoolsClient.get('/permissions/global');
+
+// ✅ Korrekt - wird zu: GET /api/whoami
+await churchtoolsClient.get('/whoami');
+
+// ✅ Korrekt - wird zu: POST /api/custommodules/123/customdatacategories
+await churchtoolsClient.post('/custommodules/123/customdatacategories', data);
+```
+
+**Falsch:**
+```typescript
+// ❌ FALSCH - wird zu: GET /api/api/permissions/global (doppeltes /api)
+await churchtoolsClient.get('/api/permissions/global');
+
+// ❌ FALSCH - wird zu: GET /api/api/whoami
+await churchtoolsClient.get('/api/whoami');
+```
+
+**Regel:** Beim Verwenden von `churchtoolsClient` NIEMALS `/api` im Pfad angeben, da es automatisch hinzugefügt wird.
+
+### API-Endpoints
+
+Dokumentierte ChurchTools API-Endpoints für dieses Projekt:
+
+| Endpoint | Methode | Beschreibung | Code-Verwendung |
+|----------|---------|--------------|-----------------|
+| `/api/whoami` | GET | Aktueller User | `churchtoolsClient.get('/whoami')` |
+| `/api/permissions/global` | GET | Globale Permissions | `churchtoolsClient.get('/permissions/global')` |
+| `/api/persons` | GET | Personen-Liste | `churchtoolsClient.get('/persons')` |
+| `/api/persons/{id}` | GET | Einzelne Person | `churchtoolsClient.get('/persons/123')` |
+| `/api/custommodules/{id}/customdatacategories` | GET | Workflow-Kategorien | `churchtoolsClient.get('/custommodules/123/customdatacategories')` |
+
+### Debugging von API-Calls
+
+Bei Problemen mit API-Calls:
+
+1. **Network-Tab prüfen** (Browser DevTools → Network)
+   - Suche nach dem Request
+   - Prüfe die URL: Ist `/api` doppelt vorhanden?
+   - Prüfe Response-Status und Body
+
+2. **Console-Logs hinzufügen:**
+   ```typescript
+   console.log('[Service] Calling API...');
+   const response = await churchtoolsClient.get('/endpoint');
+   console.log('[Service] Response:', response);
+   ```
+
+3. **Häufige Fehler:**
+   - `404 Not Found` → Falscher Pfad oder doppeltes `/api`
+   - `401 Unauthorized` → User nicht eingeloggt
+   - `403 Forbidden` → Fehlende Permissions

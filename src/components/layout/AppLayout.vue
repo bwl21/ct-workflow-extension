@@ -44,6 +44,9 @@ function toggleRole() {
 onMounted(async () => {
   // Load current user from ChurchTools
   await userStore.fetchCurrentUser();
+  
+  // Permissions are automatically loaded via TanStack Query (usePermissions composable)
+  // No manual fetching needed - caching is handled by TanStack Query
 });
 </script>
 
