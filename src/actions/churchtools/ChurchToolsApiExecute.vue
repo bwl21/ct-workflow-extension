@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { churchtoolsClient } from '@churchtools/churchtools-client';
 import type { ActionContext, ActionResult } from '@/types/action-plugin.types';
+import { interpolate } from '@/utils/template-interpolation';
 
 const props = defineProps<{
   config: {
@@ -25,15 +26,12 @@ const message = ref('');
 const responseData = ref<any>(null);
 
 /**
- * Interpoliert Variablen in einem String
+ * Interpoliert Variablen in einem String (unterstützt verschachtelte Properties)
  */
 const interpolateVariables = (str: string): string => {
   if (typeof str !== 'string') return str;
   
-  return str.replace(/\{\{(\w+)\}\}/g, (match, varName) => {
-    const value = props.context.helpers.getVariable(varName);
-    return value !== undefined ? String(value) : match;
-  });
+  return interpolate(str, props.context.workflowContext);
 };
 
 /**
