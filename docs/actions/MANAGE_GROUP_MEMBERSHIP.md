@@ -9,7 +9,7 @@
 
 ## Beschreibung
 
-Diese Action legt eine Gruppenmitgliedschaft an oder ändert sie. Sie unterstützt auch das Setzen von Gruppenmerkmalsfeldern (GMF).
+Diese Action legt eine Gruppenmitgliedschaft an oder ändert sie. Sie unterstützt auch das Setzen von Gruppenmitgliedsfeldern.
 
 ## Konfiguration
 
@@ -27,47 +27,71 @@ Alle Felder unterstützen **Platzhalter** (z.B. `{{personId}}`), um Werte aus vo
 |------|-----|--------------|----------|
 | `groupName` | String | Name der Gruppe (alternativ zu groupId) | `Mitarbeiter` oder `{{groupName}}` |
 | `groupId` | String | ID der Gruppe | `{{groupId}}` oder `42` |
-| `roleId` | String | ID der Rolle in der Gruppe | `{{roleId}}` oder `1` |
-| `gmfReferenceName` | String | Referenzname des Gruppenmerkmalfelds | `status` oder `{{gmfReferenceName}}` |
-| `gmfId` | String | ID des Gruppenmerkmalfelds | `{{gmfId}}` oder `5` |
+| `roleName` | String | Name der Rolle (alternativ zu roleId) | `Leiter` oder `{{rollenname}}` |
+| `roleId` | String | ID der Rolle in der Gruppe (groupTypeRoleId) | `{{roleId}}` oder `15` |
+| `memberStartDate` | String | Startdatum der Mitgliedschaft | `2025-11-22` oder `{{datum}}` |
+| `groupMemberStatus` | String | Status der Mitgliedschaft | `active` oder `{{status}}` |
+| `onlyAdd` | Boolean | Nur hinzufügen, nicht aktualisieren | `true` (Standard) |
+| `memberFields` | Array | Liste von Gruppenmitgliedsfeldern | Siehe Beispiele unten |
+
+### Gruppenmitgliedsfelder
+
+`memberFields` ist ein Array von Objekten mit folgender Struktur:
+
+| Feld | Typ | Beschreibung | Beispiel |
+|------|-----|--------------|----------|
+| `referenceName` | String | Referenzname des Feldes | `status`, `bemerkung`, `{{fieldName}}` |
+| `value` | String | Wert des Feldes | `aktiv`, `{{status}}` |
 
 ### Hinweise
 
 - **Gruppe:** Entweder `groupName` ODER `groupId` muss angegeben werden
-- **GMF:** Beide Felder (`gmfReferenceName` und `gmfId`) sind optional
-- **Platzhalter:** Alle Felder können Platzhalter enthalten
+- **Rolle:** Entweder `roleName` ODER `roleId` kann angegeben werden
+  - Wenn beide leer: ChurchTools verwendet automatisch die Standardrolle
+  - `roleName` wird automatisch zur `groupTypeRoleId` aufgelöst
+- **Gruppenmitgliedsfelder:** Beliebig viele Felder können hinzugefügt werden
+- **Platzhalter:** Alle Felder (inkl. referenceName und value) können Platzhalter enthalten
+- **Automatische Lookups:**
+  - `groupName` → `groupId`
+  - `roleName` → `groupTypeRoleId`
+  - `referenceName` → `fieldId`
 
 ## Verwendung
 
-### Beispiel 1: Einfache Gruppenmitgliedschaft
+### Beispiel 1: Einfache Gruppenmitgliedschaft (mit Standardrolle)
 
 ```json
 {
   "personId": "{{personId}}",
-  "groupId": "42",
-  "roleId": "1"
+  "groupId": "42"
 }
 ```
 
-### Beispiel 2: Mit Gruppenname
+**Hinweis:** Ohne `roleId` wird die Standardrolle der Gruppe verwendet.
+
+### Beispiel 2: Mit Gruppenname und Rollenname
 
 ```json
 {
   "personId": "{{personId}}",
   "groupName": "Mitarbeiter",
-  "roleId": "{{roleId}}"
+  "roleName": "Leiter"
 }
 ```
 
-### Beispiel 3: Mit Gruppenmerkmalfeld
+**Hinweis:** Beide Namen werden automatisch zu IDs aufgelöst.
+
+### Beispiel 3: Mit Gruppenmitgliedsfeldern
 
 ```json
 {
   "personId": "{{personId}}",
   "groupId": "{{groupId}}",
   "roleId": "{{roleId}}",
-  "gmfReferenceName": "status",
-  "gmfId": "{{gmfId}}"
+  "memberFields": [
+    { "referenceName": "status", "value": "aktiv" },
+    { "referenceName": "bemerkung", "value": "Neues Mitglied" }
+  ]
 }
 ```
 
@@ -78,8 +102,26 @@ Alle Felder unterstützen **Platzhalter** (z.B. `{{personId}}`), um Werte aus vo
   "personId": "{{eltern1.id}}",
   "groupName": "{{gruppenname}}",
   "roleId": "{{rolle}}",
-  "gmfReferenceName": "{{gmf_name}}",
-  "gmfId": "{{gmf_id}}"
+  "memberFields": [
+    { "referenceName": "{{field1_name}}", "value": "{{field1_value}}" },
+    { "referenceName": "status", "value": "{{person_status}}" }
+  ]
+}
+```
+
+### Beispiel 5: Mehrere Felder
+
+```json
+{
+  "personId": "{{personId}}",
+  "groupId": "42",
+  "roleId": "1",
+  "memberFields": [
+    { "referenceName": "status", "value": "aktiv" },
+    { "referenceName": "eintritt", "value": "{{datum}}" },
+    { "referenceName": "bemerkung", "value": "{{notiz}}" },
+    { "referenceName": "kategorie", "value": "Mitarbeiter" }
+  ]
 }
 ```
 
@@ -110,6 +152,11 @@ Die Konfigurationskomponente bietet:
 - 📋 Button bei jedem Feld für Platzhalter-Auswahl
 - Durchsuchbare Platzhalter-Liste
 - Hilfetext für jedes Feld
+- **Dynamische Liste für Gruppenmitgliedsfelder:**
+  - "+ Feld hinzufügen" Button
+  - Jedes Feld hat: Referenzname + Wert
+  - "✕" Button zum Entfernen
+  - Beide Felder unterstützen Platzhalter
 
 ### Ausführung
 
@@ -121,44 +168,77 @@ Die Ausführungskomponente zeigt:
 
 ## API-Implementierung
 
-⚠️ **Status:** Noch nicht implementiert
+✅ **Status:** Vollständig implementiert
 
-Die tatsächliche ChurchTools API-Integration erfolgt später. Aktuell wird nur eine Simulation ausgeführt.
-
-### Geplante Implementierung
+### Implementierung
 
 ```typescript
-// TODO: Implementierung
 async function execute(config) {
   // 1. Interpolate all values
   const interpolated = interpolateConfig(config);
   
   // 2. Resolve group (by name or ID)
-  const groupId = interpolated.groupId || 
-                  await resolveGroupByName(interpolated.groupName);
-  
-  // 3. Create or update membership
-  const membership = await churchtoolsClient.post(
-    `/groups/${groupId}/members`,
-    {
-      personId: interpolated.personId,
-      roleId: interpolated.roleId,
-    }
-  );
-  
-  // 4. Set GMF if provided
-  if (interpolated.gmfId) {
-    await churchtoolsClient.put(
-      `/groups/${groupId}/members/${interpolated.personId}/fields/${interpolated.gmfId}`,
-      {
-        value: interpolated.gmfValue,
-      }
-    );
+  let groupId = interpolated.groupId;
+  if (!groupId && interpolated.groupName) {
+    const groups = await churchtoolsClient.get('/groups', {
+      params: { name: interpolated.groupName }
+    });
+    groupId = groups.data.find(g => g.name === interpolated.groupName)?.id;
   }
   
-  return { success: true, data: membership };
+  // 3. Resolve role (by name or ID)
+  let roleId = interpolated.roleId;
+  if (!roleId && interpolated.roleName) {
+    const roles = await churchtoolsClient.get(`/groups/${groupId}/roles`);
+    roleId = roles.data.find(r => r.name === interpolated.roleName)?.id;
+  }
+  
+  // 4. Fetch group member fields to resolve referenceName -> fieldId
+  const fieldsResponse = await churchtoolsClient.get(`/groups/${groupId}/fields`);
+  const availableFields = fieldsResponse.data;
+  
+  // 4. Build fields object: { fieldId: [value] }
+  const fields = {};
+  for (const field of interpolated.memberFields) {
+    const fieldDef = availableFields.find(f => 
+      f.referenceName === field.referenceName
+    );
+    if (fieldDef) {
+      fields[fieldDef.id] = [field.value];
+    }
+  }
+  
+  // 5. Build request body
+  const requestBody = { fields };
+  if (interpolated.roleId) {
+    requestBody.groupTypeRoleId = parseInt(interpolated.roleId);
+  }
+  if (interpolated.memberStartDate) {
+    requestBody.memberStartDate = interpolated.memberStartDate;
+  }
+  if (interpolated.groupMemberStatus) {
+    requestBody.groupMemberStatus = interpolated.groupMemberStatus;
+  }
+  
+  // 6. Create or update membership
+  const queryParams = interpolated.onlyAdd ? '?only_add=true' : '';
+  const response = await churchtoolsClient.put(
+    `/groups/${groupId}/members/${interpolated.personId}${queryParams}`,
+    requestBody
+  );
+  
+  return { success: true, data: response.data };
 }
 ```
+
+### Features
+
+- ✅ Automatischer Lookup: `groupName` → `groupId`
+- ✅ Automatischer Lookup: `referenceName` → `fieldId`
+- ✅ Standardrolle wenn `roleId` leer
+- ✅ Alle Felder optional (außer `personId` und Gruppe)
+- ✅ Vollständige Fehlerbehandlung
+- ✅ Console-Logging für Debugging
 
 ## Dateien
 
@@ -178,7 +258,8 @@ Mögliche Fehler:
 - Person nicht gefunden
 - Gruppe nicht gefunden
 - Keine Berechtigung
-- GMF nicht gefunden
+- Gruppenmitgliedsfeld nicht gefunden
+- Ungültiger Feldwert
 - Netzwerkfehler
 
 ## Nächste Schritte
@@ -195,6 +276,11 @@ Mögliche Fehler:
 - `ct-api-call` - Generische ChurchTools API Action
 
 ## Changelog
+
+### Version 1.1.0 (2025-11-22)
+- ✅ Gruppenmitgliedsfelder als dynamische Liste
+- ✅ Beliebig viele Felder hinzufügen/entfernen
+- ✅ Platzhalter für referenceName und value
 
 ### Version 1.0.0 (2025-11-22)
 - ✅ Action-Struktur erstellt

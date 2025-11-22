@@ -5,7 +5,7 @@ import { ActionCategory } from '@/types/action-plugin.types';
 export const ManageGroupMembershipAction: ActionPlugin = {
   id: 'ct-manage-group-membership',
   name: 'Gruppenmitgliedschaft verwalten',
-  description: 'Legt eine Gruppenmitgliedschaft an oder ändert sie (inkl. Gruppenmerkmalsfelder)',
+  description: 'Legt eine Gruppenmitgliedschaft an oder ändert sie (inkl. Gruppenmitgliedsfelder)',
   icon: 'users',
   category: ActionCategory.CHURCHTOOLS,
 
@@ -16,10 +16,13 @@ export const ManageGroupMembershipAction: ActionPlugin = {
   defaultConfig: {
     groupName: '',
     groupId: '',
+    roleName: '',
     roleId: '',
-    gmfReferenceName: '',
-    gmfId: '',
     personId: '',
+    memberStartDate: '',
+    groupMemberStatus: 'active',
+    onlyAdd: true,
+    memberFields: [], // Array of { referenceName: string, value: string }
   },
 
   validate: (config) => {
@@ -56,21 +59,46 @@ export const ManageGroupMembershipAction: ActionPlugin = {
         type: 'string',
         description: 'ID der Gruppe',
       },
+      roleName: {
+        type: 'string',
+        description: 'Name der Rolle (alternativ zu roleId)',
+      },
       roleId: {
         type: 'string',
         description: 'ID der Rolle in der Gruppe',
       },
-      gmfReferenceName: {
-        type: 'string',
-        description: 'Referenzname des Gruppenmerkmalfelds',
-      },
-      gmfId: {
-        type: 'string',
-        description: 'ID des Gruppenmerkmalfelds',
-      },
       personId: {
         type: 'string',
         description: 'ID der Person',
+      },
+      memberStartDate: {
+        type: 'string',
+        description: 'Startdatum der Mitgliedschaft (YYYY-MM-DD)',
+      },
+      groupMemberStatus: {
+        type: 'string',
+        description: 'Status der Mitgliedschaft (z.B. active)',
+      },
+      onlyAdd: {
+        type: 'boolean',
+        description: 'Nur hinzufügen, nicht aktualisieren',
+      },
+      memberFields: {
+        type: 'array',
+        description: 'Liste von Gruppenmitgliedsfeldern',
+        items: {
+          type: 'object',
+          properties: {
+            referenceName: {
+              type: 'string',
+              description: 'Referenzname des Feldes (wird zu fieldId aufgelöst)',
+            },
+            value: {
+              type: 'string',
+              description: 'Wert des Feldes',
+            },
+          },
+        },
       },
     },
     required: ['personId'],
@@ -79,14 +107,19 @@ export const ManageGroupMembershipAction: ActionPlugin = {
   metadata: {
     author: 'ChurchTools',
     version: '1.0.0',
-    tags: ['churchtools', 'person', 'group', 'membership', 'gmf'],
+    tags: ['churchtools', 'person', 'group', 'membership', 'fields'],
     example: {
       groupName: 'Mitarbeiter',
       groupId: '{{groupId}}',
       roleId: '{{roleId}}',
-      gmfReferenceName: 'status',
-      gmfId: '{{gmfId}}',
       personId: '{{personId}}',
+      memberStartDate: '2025-11-22',
+      groupMemberStatus: 'active',
+      onlyAdd: true,
+      memberFields: [
+        { referenceName: 'status', value: '02' },
+        { referenceName: '{{fieldName}}', value: '{{value}}' },
+      ],
     },
   },
 };
