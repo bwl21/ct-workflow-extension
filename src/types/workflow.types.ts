@@ -204,6 +204,7 @@ export interface ExecutionContext {
   timestamp: Date;
   nodeQueue?: string[]; // Queue for sequential multi-edge execution
   joinStates?: Record<string, JoinState>; // Track JOIN node states
+  error?: string; // Error message for failed executions
 }
 
 export interface JoinState {

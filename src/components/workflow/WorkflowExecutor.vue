@@ -114,8 +114,14 @@ function initializeFormData() {
 }
 
 function startWorkflow(workflowId: number) {
-  executionStore.startExecution(workflowId);
-  initializeFormData();
+  try {
+    executionStore.startExecution(workflowId);
+    initializeFormData();
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    alert('❌ Workflow kann nicht gestartet werden\n\n' + errorMessage);
+    console.error('[WorkflowExecutor] Failed to start workflow:', error);
+  }
 }
 
 // Watch for node changes to reset action result

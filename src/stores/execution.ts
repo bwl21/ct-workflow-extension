@@ -42,6 +42,32 @@ export const useExecutionStore = defineStore('execution', () => {
     return all;
   });
 
+  // Validation helper
+  function validateWorkflowForExecution(workflow: any): string[] {
+    const errors: string[] = [];
+    const definition = workflow.definition;
+    
+    // Check for START node
+    const startNodes = definition.nodes.filter((n: any) => n.type === NodeType.START);
+    if (startNodes.length === 0) {
+      errors.push('⛔ Workflow hat keinen START Node.');
+    } else if (startNodes.length > 1) {
+      errors.push(`⛔ Workflow hat ${startNodes.length} START Nodes. Es darf nur einen geben.`);
+    }
+    
+    // Check for nodes with multiple incoming edges (except JOIN nodes)
+    definition.nodes.forEach((node: any) => {
+      if (node.type === NodeType.JOIN) return;
+      
+      const incomingEdges = definition.edges.filter((e: any) => e.target === node.id);
+      if (incomingEdges.length > 1) {
+        errors.push(`⛔ Node "${node.label}" hat ${incomingEdges.length} eingehende Verbindungen ohne JOIN Node.`);
+      }
+    });
+    
+    return errors;
+  }
+
   // Actions
   function startExecution(workflowId: number, userId: string = 'demo-user'): WorkflowExecution {
     const workflowStore = useWorkflowStore();
@@ -49,6 +75,14 @@ export const useExecutionStore = defineStore('execution', () => {
 
     if (!workflow) {
       throw new Error('Workflow not found');
+    }
+
+    // Validate workflow before execution
+    const validationErrors = validateWorkflowForExecution(workflow);
+    if (validationErrors.length > 0) {
+      const errorMessage = 'Workflow-Validierung fehlgeschlagen:\n\n' + validationErrors.join('\n');
+      console.error('[Execution] Validation failed:', validationErrors);
+      throw new Error(errorMessage);
     }
 
     // Find start node
@@ -330,25 +364,21 @@ export const useExecutionStore = defineStore('execution', () => {
       return;
     }
 
-    // Check for implicit join: Does this node have multiple incoming edges?
+    // Check for multiple incoming edges - require explicit JOIN node
     const incomingEdges = workflow.definition.edges.filter((e) => e.target === nextNode.id);
-    console.log('[Execution] Checking for implicit join, incoming edges:', incomingEdges.length);
+    console.log('[Execution] Checking incoming edges:', incomingEdges.length);
     
     if (incomingEdges.length > 1) {
-      // Check if all incoming edges come from the same source node
-      const sourceNodes = new Set(incomingEdges.map(e => e.source));
-      
-      if (sourceNodes.size === 1) {
-        // All edges from same source = alternative paths from Decision node
-        // No implicit join needed, just continue
-        console.log('[Execution] Multiple edges from same source (Decision node), no join needed');
-      } else {
-        // Edges from different sources = parallel branches converging
-        // Implicit join - treat like JOIN node with AND mode
-        console.log('[Execution] Implicit join detected for node:', nextNode.label);
-        handleImplicitJoin(executionId, nextNode.id, incomingEdges.length);
-        return;
+      // Multiple incoming edges require explicit JOIN node
+      console.error('[Execution] Node has multiple incoming edges without JOIN node:', nextNode.label);
+      console.error('[Execution] Incoming edges:', incomingEdges);
+      execution.status = ExecutionStatus.FAILED;
+      execution.completedAt = new Date();
+      // Store error message for UI
+      if (!execution.context.error) {
+        execution.context.error = `Node "${nextNode.label}" hat ${incomingEdges.length} eingehende Verbindungen. Bitte füge einen JOIN Node davor ein.`;
       }
+      return;
     }
 
     // Move to next node
@@ -356,68 +386,8 @@ export const useExecutionStore = defineStore('execution', () => {
     execution.currentNodeId = nextNode.id;
   }
 
-  function handleImplicitJoin(executionId: string, nodeId: string, expectedBranches: number) {
-    let execution: WorkflowExecution | undefined;
-    for (const executions of executionsByWorkflow.value.values()) {
-      execution = executions.find((e) => e.id === executionId);
-      if (execution) break;
-    }
-    
-    if (!execution) return;
-
-    const workflowStore = useWorkflowStore();
-    const workflow = workflowStore.getWorkflowById(execution.workflowId);
-    if (!workflow) return;
-
-    // Initialize joinStates if not exists
-    if (!execution.context.joinStates) {
-      execution.context.joinStates = {};
-    }
-
-    // Initialize or update JOIN state
-    if (!execution.context.joinStates[nodeId]) {
-      execution.context.joinStates[nodeId] = {
-        nodeId,
-        expectedBranches,
-        completedBranches: 0,
-        branchData: [],
-      };
-    }
-
-    const joinState = execution.context.joinStates[nodeId];
-
-    // Mark this branch as completed
-    joinState.completedBranches++;
-    joinState.branchData.push({ ...execution.context.variables });
-
-    // Check if all branches have arrived (implicit AND mode)
-    if (joinState.completedBranches >= joinState.expectedBranches) {
-      // All branches complete - merge data and continue
-      console.log('[Execution] Implicit join complete, all branches arrived');
-      
-      // Merge all branch data into context
-      for (const branchData of joinState.branchData) {
-        execution.context.variables = {
-          ...execution.context.variables,
-          ...branchData,
-        };
-      }
-
-      // Reset JOIN state for potential re-execution
-      delete execution.context.joinStates[nodeId];
-
-      // Move to this node (implicit join complete)
-      execution.currentNodeId = nodeId;
-      
-      // Continue workflow from this node
-      console.log('[Execution] Continuing from implicit join node:', nodeId);
-      moveToNextNode(executionId);
-    } else {
-      // Not all branches arrived yet - continue with next in queue
-      console.log('[Execution] Implicit join waiting, branches:', joinState.completedBranches, '/', joinState.expectedBranches);
-      processNextFromQueue(executionId);
-    }
-  }
+  // handleImplicitJoin removed - we now require explicit JOIN nodes
+  // Multiple incoming edges without JOIN node will cause execution to fail
 
   function handleJoinNode(executionId: string, joinNodeId: string) {
     let execution: WorkflowExecution | undefined;
