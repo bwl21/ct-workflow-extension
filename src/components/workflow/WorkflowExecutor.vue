@@ -120,9 +120,24 @@ function startWorkflow(workflowId: number) {
 
 // Watch for node changes to reset action result
 watch(currentNode, () => {
+  console.log('[WorkflowExecutor] Node changed to:', currentNode.value);
+  console.log('[WorkflowExecutor] Node type:', currentNode.value?.type);
+  console.log('[WorkflowExecutor] NodeType.DECISION constant:', NodeType.DECISION);
+  
   actionResult.value = null;
   actionExecuting.value = false;
   initializeFormData();
+  
+  // Auto-complete DECISION nodes (they don't need user interaction)
+  if (currentNode.value?.type === NodeType.DECISION && currentExecution.value) {
+    console.log('[WorkflowExecutor] Decision node reached:', currentNode.value);
+    console.log('[WorkflowExecutor] Decision node outputs:', currentNode.value.data.outputs);
+    console.log('[WorkflowExecutor] Current context:', currentExecution.value.context.variables);
+    
+    // Decision nodes are evaluated automatically in execution store
+    // Just complete the step to trigger moveToNextNode
+    executionStore.completeStep(currentExecution.value.id, {});
+  }
 });
 
 function submitStep() {
@@ -333,6 +348,13 @@ function handleActionComplete(result: ActionResult) {
   if (result.success && result.data && currentExecution.value) {
     Object.assign(currentExecution.value.context.variables, result.data);
   }
+  
+  // Auto-continue disabled for debugging
+  // if (result.success && currentExecution.value) {
+  //   setTimeout(() => {
+  //     submitStep();
+  //   }, 500);
+  // }
 }
 
 function closeDropdown() {

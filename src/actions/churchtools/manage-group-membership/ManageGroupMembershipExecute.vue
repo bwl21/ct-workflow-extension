@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import type { ActionContext, ActionResult } from '@/types/action-plugin.types';
 import { interpolate } from '@/utils/template-interpolation';
-import { churchtoolsClient } from '@churchtools/churchtools-client';
+import { churchtoolsClient, errorHelper } from '@churchtools/churchtools-client';
 
 interface MemberField {
   referenceName: string;
@@ -170,9 +170,16 @@ async function execute() {
     result.value = actionResult;
     emit('complete', actionResult);
   } catch (error) {
+    console.error('[ManageGroupMembership] Error caught:', error);
+    
+    // Use ChurchTools errorHelper to extract translated error message
+    const errorMessage = errorHelper.getTranslatedErrorMessage(error);
+    
+    console.error('[ManageGroupMembership] Translated error message:', errorMessage);
+
     const errorResult: ActionResult = {
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage || 'Unbekannter Fehler',
     };
 
     result.value = errorResult;

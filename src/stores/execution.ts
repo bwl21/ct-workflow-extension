@@ -85,6 +85,9 @@ export const useExecutionStore = defineStore('execution', () => {
   }
 
   function completeStep(executionId: string, inputs: Record<string, any>) {
+    console.log('[Execution] completeStep called for execution:', executionId);
+    console.log('[Execution] Step inputs:', inputs);
+    
     let execution: WorkflowExecution | undefined;
     for (const executions of executionsByWorkflow.value.values()) {
       execution = executions.find((e) => e.id === executionId);
@@ -94,6 +97,9 @@ export const useExecutionStore = defineStore('execution', () => {
     if (!execution) {
       throw new Error('Execution not found');
     }
+    
+    console.log('[Execution] Current execution:', execution);
+    console.log('[Execution] Current node ID:', execution.currentNodeId);
 
     const workflowStore = useWorkflowStore();
     const workflow = workflowStore.getWorkflowById(execution.workflowId);
@@ -135,26 +141,40 @@ export const useExecutionStore = defineStore('execution', () => {
   }
 
   function moveToNextNode(executionId: string) {
+    console.log('[Execution] moveToNextNode called for execution:', executionId);
+    
     let execution: WorkflowExecution | undefined;
     for (const executions of executionsByWorkflow.value.values()) {
       execution = executions.find((e) => e.id === executionId);
       if (execution) break;
     }
     
-    if (!execution) return;
+    if (!execution) {
+      console.error('[Execution] Execution not found in moveToNextNode');
+      return;
+    }
+    
+    console.log('[Execution] Current node before move:', execution.currentNodeId);
 
     const workflowStore = useWorkflowStore();
     const workflow = workflowStore.getWorkflowById(execution.workflowId);
     if (!workflow) return;
 
     const currentNode = workflow.definition.nodes.find((n) => n.id === execution.currentNodeId);
-    if (!currentNode) return;
+    if (!currentNode) {
+      console.error('[Execution] Current node not found:', execution.currentNodeId);
+      return;
+    }
+    
+    console.log('[Execution] Current node:', currentNode);
 
     // Find outgoing edges
     const outgoingEdges = workflow.definition.edges.filter((e) => e.source === currentNode.id);
+    console.log('[Execution] Outgoing edges:', outgoingEdges);
 
     if (outgoingEdges.length === 0) {
       // No more nodes, complete workflow
+      console.log('[Execution] No outgoing edges, completing workflow');
       execution.status = ExecutionStatus.COMPLETED;
       execution.completedAt = new Date();
       return;
@@ -164,23 +184,33 @@ export const useExecutionStore = defineStore('execution', () => {
 
     // For DECISION nodes: evaluate conditions from node outputs
     if (currentNode.type === NodeType.DECISION) {
+      console.log('[Execution] Decision node evaluation started');
+      console.log('[Execution] Current node:', currentNode);
+      console.log('[Execution] Outgoing edges:', outgoingEdges);
+      
       const outputs = currentNode.data.outputs || [
         { id: 'true', label: 'JA', isDefault: false },
         { id: 'false', label: 'NEIN', isDefault: true }
       ];
+      
+      console.log('[Execution] Decision outputs:', outputs);
 
       // Try to find an output whose condition is met
       let selectedOutput = null;
       for (const output of outputs) {
+        console.log('[Execution] Checking output:', output);
         if (output.condition) {
+          console.log('[Execution] Evaluating condition:', output.condition);
           const conditionMet = evaluateRules(
             output.condition.engine,
             output.condition.rule,
             execution.context.variables
           );
+          console.log('[Execution] Condition result:', conditionMet);
           
           if (conditionMet) {
             selectedOutput = output;
+            console.log('[Execution] Selected output (condition met):', selectedOutput);
             break;
           }
         }
@@ -189,11 +219,14 @@ export const useExecutionStore = defineStore('execution', () => {
       // If no condition matched, use default output
       if (!selectedOutput) {
         selectedOutput = outputs.find(o => o.isDefault);
+        console.log('[Execution] Selected output (default):', selectedOutput);
       }
 
       // Find edge that uses this output
       if (selectedOutput) {
         const edge = outgoingEdges.find(e => e.sourceHandle === selectedOutput.id);
+        console.log('[Execution] Looking for edge with sourceHandle:', selectedOutput.id);
+        console.log('[Execution] Found edge:', edge);
         if (edge) {
           selectedEdges = [edge];
         }
@@ -201,30 +234,46 @@ export const useExecutionStore = defineStore('execution', () => {
 
       // If still no edge, log error and complete
       if (selectedEdges.length === 0) {
-        console.error('No matching output edge found for decision node');
+        console.error('[Execution] No matching output edge found for decision node');
+        console.error('[Execution] Available edges:', outgoingEdges);
+        console.error('[Execution] Selected output:', selectedOutput);
         execution.status = ExecutionStatus.FAILED;
         execution.completedAt = new Date();
         return;
       }
+      
+      console.log('[Execution] Selected edges:', selectedEdges);
     } else {
       // For non-decision nodes: use ALL edges (sequential execution)
+      console.log('[Execution] Non-decision node, using all edges');
       selectedEdges = outgoingEdges;
+      console.log('[Execution] Selected edges for non-decision:', selectedEdges);
     }
 
+    console.log('[Execution] About to initialize queue');
     // Initialize execution queue if not exists
     if (!execution.context.nodeQueue) {
       execution.context.nodeQueue = [];
+      console.log('[Execution] Initialized empty queue');
+    } else {
+      console.log('[Execution] Queue already exists:', execution.context.nodeQueue);
     }
 
+    console.log('[Execution] Adding edges to queue, count:', selectedEdges.length);
     // Add all target nodes to queue (in reverse order, so first edge is processed first)
     for (let i = selectedEdges.length - 1; i >= 0; i--) {
       const edge = selectedEdges[i];
+      console.log('[Execution] Processing edge:', edge);
       const nextNode = workflow.definition.nodes.find((n) => n.id === edge.target);
+      console.log('[Execution] Found next node:', nextNode);
       if (nextNode) {
         execution.context.nodeQueue.push(nextNode.id);
+        console.log('[Execution] Added to queue:', nextNode.id);
       }
     }
 
+    console.log('[Execution] Final queue:', execution.context.nodeQueue);
+    console.log('[Execution] Calling processNextFromQueue');
     // Process next node from queue
     processNextFromQueue(executionId);
   }
@@ -283,13 +332,27 @@ export const useExecutionStore = defineStore('execution', () => {
 
     // Check for implicit join: Does this node have multiple incoming edges?
     const incomingEdges = workflow.definition.edges.filter((e) => e.target === nextNode.id);
+    console.log('[Execution] Checking for implicit join, incoming edges:', incomingEdges.length);
+    
     if (incomingEdges.length > 1) {
-      // Implicit join - treat like JOIN node with AND mode
-      handleImplicitJoin(executionId, nextNode.id, incomingEdges.length);
-      return;
+      // Check if all incoming edges come from the same source node
+      const sourceNodes = new Set(incomingEdges.map(e => e.source));
+      
+      if (sourceNodes.size === 1) {
+        // All edges from same source = alternative paths from Decision node
+        // No implicit join needed, just continue
+        console.log('[Execution] Multiple edges from same source (Decision node), no join needed');
+      } else {
+        // Edges from different sources = parallel branches converging
+        // Implicit join - treat like JOIN node with AND mode
+        console.log('[Execution] Implicit join detected for node:', nextNode.label);
+        handleImplicitJoin(executionId, nextNode.id, incomingEdges.length);
+        return;
+      }
     }
 
     // Move to next node
+    console.log('[Execution] Moving to node (no join):', nextNode.label);
     execution.currentNodeId = nextNode.id;
   }
 
@@ -330,6 +393,7 @@ export const useExecutionStore = defineStore('execution', () => {
     // Check if all branches have arrived (implicit AND mode)
     if (joinState.completedBranches >= joinState.expectedBranches) {
       // All branches complete - merge data and continue
+      console.log('[Execution] Implicit join complete, all branches arrived');
       
       // Merge all branch data into context
       for (const branchData of joinState.branchData) {
@@ -344,8 +408,13 @@ export const useExecutionStore = defineStore('execution', () => {
 
       // Move to this node (implicit join complete)
       execution.currentNodeId = nodeId;
+      
+      // Continue workflow from this node
+      console.log('[Execution] Continuing from implicit join node:', nodeId);
+      moveToNextNode(executionId);
     } else {
       // Not all branches arrived yet - continue with next in queue
+      console.log('[Execution] Implicit join waiting, branches:', joinState.completedBranches, '/', joinState.expectedBranches);
       processNextFromQueue(executionId);
     }
   }
