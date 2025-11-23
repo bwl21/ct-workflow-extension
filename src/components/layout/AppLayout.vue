@@ -3,11 +3,13 @@ import { computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/user';
 import { UserRole } from '@/types/user.types';
+import packageJson from '../../../package.json';
 
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
 
+const version = packageJson.version;
 const isAdmin = computed(() => userStore.isAdmin);
 
 const navItems = computed(() => {
@@ -99,7 +101,7 @@ onMounted(async () => {
     <footer class="app-footer">
       <div class="footer-content">
         <p class="ct-text-muted ct-mb-0">
-          <small>Workflow-Assistent für ChurchTools &copy; 2025</small>
+          <small>Workflow-Assistent für ChurchTools &copy; 2025 | Version {{ version }}</small>
         </p>
       </div>
     </footer>
