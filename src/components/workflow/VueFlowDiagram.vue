@@ -27,6 +27,12 @@ const props = withDefaults(defineProps<Props>(), {
   currentNodeId: null,
 });
 
+// Watch currentNodeId changes and update nodes
+watch(() => props.currentNodeId, () => {
+  // Recompute nodes to update active-node class
+  vueFlowNodes.value = convertNodes();
+});
+
 const emit = defineEmits<{
   nodeClick: [nodeId: string];
   nodeDelete: [nodeId: string];
@@ -93,6 +99,8 @@ function convertNodes(): Node[] {
       resizable: !props.readonly,
       class: props.currentNodeId === node.id ? 'active-node' : '',
     };
+    
+
     
     // Dimensions setzen (entweder gespeichert oder als style)
     if (node.dimensions) {
@@ -317,12 +325,7 @@ onMounted(() => {
         </button>
       </Panel>
 
-      <Panel v-if="readonly && currentNodeId" position="top-right" class="info-panel">
-        <div class="panel-content">
-          <div class="panel-icon">▶️</div>
-          <div class="panel-text">Aktueller Schritt</div>
-        </div>
-      </Panel>
+
     </VueFlow>
   </div>
 </template>
@@ -341,15 +344,35 @@ onMounted(() => {
 }
 
 .active-node {
-  animation: pulse 2s infinite;
+  z-index: 100 !important;
 }
 
-@keyframes pulse {
+/* Apply strong pulsing border to all node types when active */
+.active-node .task-node,
+.active-node .action-node,
+.active-node .decision-node,
+.active-node .start-node,
+.active-node .end-node,
+.active-node .join-node {
+  animation: pulse-border 1.2s ease-in-out infinite !important;
+  border-width: 4px !important;
+  background: linear-gradient(135deg, #e8f5e9 0%, #ffffff 100%) !important;
+}
+
+@keyframes pulse-border {
   0%, 100% {
-    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+    border-color: #2e7d32 !important;
+    box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.8), 
+                0 0 20px rgba(76, 175, 80, 0.4),
+                0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: scale(1);
   }
   50% {
-    box-shadow: 0 0 0 10px rgba(76, 175, 80, 0);
+    border-color: #66bb6a !important;
+    box-shadow: 0 0 0 15px rgba(76, 175, 80, 0), 
+                0 0 30px rgba(76, 175, 80, 0.6),
+                0 6px 16px rgba(0, 0, 0, 0.2);
+    transform: scale(1.02);
   }
 }
 
@@ -379,28 +402,6 @@ onMounted(() => {
 
 .fit-view-button:active {
   transform: scale(0.95);
-}
-
-.info-panel {
-  background: white;
-  border-radius: 8px;
-  padding: 1rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.panel-content {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.panel-icon {
-  font-size: 1.5rem;
-}
-
-.panel-text {
-  font-weight: 600;
-  color: #333;
 }
 
 .vue-flow__node {

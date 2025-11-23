@@ -103,8 +103,11 @@ function initializeFormData() {
       formData.value[field.name] = contextVars[field.name];
     }
     // Priorität 2: Spezielle Defaults
-    else if (field.type === 'multiselect') {
+    else if (field.type === 'multiselect' || field.type === FieldType.PERSON_MULTI) {
       formData.value[field.name] = [];
+    }
+    else if (field.type === FieldType.PERSON) {
+      formData.value[field.name] = null;
     }
     // Priorität 3: Leerer String für Text-Felder (defaultValue wird über interpolatedDefaults gehandhabt)
     else if (['text', 'email', 'tel', 'url', 'textarea'].includes(field.type)) {
@@ -114,15 +117,36 @@ function initializeFormData() {
 }
 
 function startWorkflow(workflowId: number) {
-  executionStore.startExecution(workflowId);
-  initializeFormData();
+  try {
+    executionStore.startExecution(workflowId);
+    initializeFormData();
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    alert('❌ Workflow kann nicht gestartet werden\n\n' + errorMessage);
+    console.error('[WorkflowExecutor] Failed to start workflow:', error);
+  }
 }
 
 // Watch for node changes to reset action result
 watch(currentNode, () => {
+  console.log('[WorkflowExecutor] Node changed to:', currentNode.value);
+  console.log('[WorkflowExecutor] Node type:', currentNode.value?.type);
+  console.log('[WorkflowExecutor] NodeType.DECISION constant:', NodeType.DECISION);
+  
   actionResult.value = null;
   actionExecuting.value = false;
   initializeFormData();
+  
+  // Auto-complete DECISION nodes (they don't need user interaction)
+  if (currentNode.value?.type === NodeType.DECISION && currentExecution.value) {
+    console.log('[WorkflowExecutor] Decision node reached:', currentNode.value);
+    console.log('[WorkflowExecutor] Decision node outputs:', currentNode.value.data.outputs);
+    console.log('[WorkflowExecutor] Current context:', currentExecution.value.context.variables);
+    
+    // Decision nodes are evaluated automatically in execution store
+    // Just complete the step to trigger moveToNextNode
+    executionStore.completeStep(currentExecution.value.id, {});
+  }
 });
 
 function submitStep() {
@@ -333,6 +357,13 @@ function handleActionComplete(result: ActionResult) {
   if (result.success && result.data && currentExecution.value) {
     Object.assign(currentExecution.value.context.variables, result.data);
   }
+  
+  // Auto-continue disabled for debugging
+  // if (result.success && currentExecution.value) {
+  //   setTimeout(() => {
+  //     submitStep();
+  //   }, 500);
+  // }
 }
 
 function closeDropdown() {
@@ -437,7 +468,7 @@ onUnmounted(() => {
           v-if="currentWorkflow"
           :definition="currentWorkflow.definition"
           :readonly="true"
-          :current-node-id="currentExecution.currentNodeId"
+          :current-node-id="executionStore.currentNodeId"
         />
       </div>
 

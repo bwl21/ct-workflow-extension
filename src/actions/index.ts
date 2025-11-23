@@ -3,6 +3,7 @@ import { RestApiAction } from './rest-api/RestApiAction';
 import { EmailAction } from './email/EmailAction';
 import { ChurchToolsApiAction } from './churchtools/ChurchToolsApiAction';
 import { AddToGroupAction } from './churchtools/add-to-group/AddToGroupAction';
+import { ManageGroupMembershipAction } from './churchtools/manage-group-membership/ManageGroupMembershipAction';
 
 /**
  * Registriert alle Built-in Actions
@@ -13,6 +14,7 @@ export function registerBuiltInActions() {
     EmailAction,
     ChurchToolsApiAction,
     AddToGroupAction,
+    ManageGroupMembershipAction,
   ]);
 }
 

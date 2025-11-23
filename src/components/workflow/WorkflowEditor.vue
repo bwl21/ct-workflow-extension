@@ -143,12 +143,66 @@ function editNode(node: WorkflowNode) {
   showNodeEditor.value = true;
 }
 
+function validateWorkflow(): string[] {
+  if (!currentWorkflow.value) return [];
+  
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const definition = currentWorkflow.value.definition;
+  
+  // Check for START node
+  const startNodes = definition.nodes.filter(n => n.type === NodeType.START);
+  if (startNodes.length === 0) {
+    errors.push('⛔ Workflow hat keinen START Node.');
+  } else if (startNodes.length > 1) {
+    errors.push(`⛔ Workflow hat ${startNodes.length} START Nodes. Es darf nur einen geben.`);
+  }
+  
+  // Check for nodes with multiple incoming edges (except JOIN nodes)
+  definition.nodes.forEach(node => {
+    if (node.type === NodeType.JOIN) return; // JOIN nodes are allowed to have multiple inputs
+    
+    const incomingEdges = definition.edges.filter(e => e.target === node.id);
+    if (incomingEdges.length > 1) {
+      errors.push(`⛔ Node "${node.label}" hat ${incomingEdges.length} eingehende Verbindungen. Bitte füge einen JOIN Node davor ein.`);
+    }
+  });
+  
+  // Check for nodes without outgoing edges (potential end points)
+  const nodesWithoutOutgoing = definition.nodes.filter(node => {
+    if (node.type === NodeType.END) return false; // END nodes are expected to have no outgoing edges
+    const outgoingEdges = definition.edges.filter(e => e.source === node.id);
+    return outgoingEdges.length === 0;
+  });
+  
+  if (nodesWithoutOutgoing.length > 0) {
+    const nodeNames = nodesWithoutOutgoing.map(n => `"${n.label}"`).join(', ');
+    warnings.push(`⚠️ Folgende Nodes haben keine ausgehenden Verbindungen: ${nodeNames}\n   → Workflow endet hier automatisch. Erwäge einen END Node für bessere Übersicht.`);
+  }
+  
+  // Check if workflow has no clear end point (no END node and no node without outgoing edges)
+  const hasEndNode = definition.nodes.some(n => n.type === NodeType.END);
+  if (!hasEndNode && nodesWithoutOutgoing.length === 0) {
+    warnings.push('⚠️ Workflow hat keinen klaren Endpunkt (kein END Node und alle Nodes haben ausgehende Verbindungen).\n   → Möglicherweise eine Endlosschleife!');
+  }
+  
+  // Combine errors and warnings
+  return [...errors, ...warnings];
+}
+
 function saveNode() {
   if (!selectedNode.value || !currentWorkflow.value) return;
 
   workflowStore.updateNode(currentWorkflow.value.id, selectedNode.value.id, selectedNode.value);
+  
   showNodeEditor.value = false;
   selectedNode.value = null;
+  
+  // Validate workflow after saving (non-blocking, just show alert)
+  const errors = validateWorkflow();
+  if (errors.length > 0) {
+    alert('⚠️ Workflow-Validierung\n\nGefundene Probleme:\n\n' + errors.map((e, i) => `${i + 1}. ${e}`).join('\n\n') + '\n\n✅ Workflow wurde trotzdem gespeichert.');
+  }
 }
 
 function deleteNode(nodeId: string) {
@@ -729,6 +783,25 @@ function handleNodesChange(updatedNodes: WorkflowNode[]) {
 function handleEdgeAdd(connection: { source: string; target: string; sourceHandle?: string }) {
   if (!currentWorkflow.value) return;
   
+  // Check if target node would have multiple incoming edges (warning, not blocking)
+  const targetNode = currentWorkflow.value.definition.nodes.find(n => n.id === connection.target);
+  if (targetNode && targetNode.type !== NodeType.JOIN) {
+    const existingIncomingEdges = currentWorkflow.value.definition.edges.filter(e => e.target === connection.target);
+    
+    if (existingIncomingEdges.length >= 1) {
+      const confirmed = confirm(
+        `⚠️ Validierungswarnung\n\n` +
+        `Node "${targetNode.label}" würde ${existingIncomingEdges.length + 1} eingehende Verbindungen haben.\n\n` +
+        `Empfehlung: Füge einen JOIN Node davor ein, um mehrere Branches zusammenzuführen.\n\n` +
+        `Trotzdem fortfahren?`
+      );
+      
+      if (!confirmed) {
+        return;
+      }
+    }
+  }
+  
   const newEdge: WorkflowEdge = {
     id: generateId(),
     source: connection.source,
@@ -737,6 +810,12 @@ function handleEdgeAdd(connection: { source: string; target: string; sourceHandl
   };
   
   workflowStore.addEdge(currentWorkflow.value.id, newEdge);
+  
+  // Validate after adding (non-blocking)
+  const errors = validateWorkflow();
+  if (errors.length > 0) {
+    console.warn('[WorkflowEditor] Validation warnings:', errors);
+  }
 }
 
 function handleEdgeDelete(edgeId: string) {
@@ -756,6 +835,21 @@ function handleEdgeUpdate(update: { id: string; source: string; target: string; 
       sourceHandle: update.sourceHandle,
     };
     workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
+  }
+}
+
+function saveWorkflowMeta() {
+  if (!currentWorkflow.value) return;
+  workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
+}
+
+function showValidationResults() {
+  const errors = validateWorkflow();
+  
+  if (errors.length === 0) {
+    alert('✅ Workflow ist valide!\n\nKeine Fehler gefunden.');
+  } else {
+    alert('⚠️ Workflow-Validierung\n\nGefundene Probleme:\n\n' + errors.map((e, i) => `${i + 1}. ${e}`).join('\n\n'));
   }
 }
 
@@ -876,13 +970,32 @@ function getActionContext() {
         <p>Kein Workflow ausgewählt. Bitte wähle einen Workflow aus der Verwaltung.</p>
       </div>
       <div v-else class="workflow-info">
-        <div>
-          <h3>{{ currentWorkflow.name }}</h3>
-          <p>{{ currentWorkflow.description }}</p>
+        <div class="workflow-meta">
+          <div class="editable-field">
+            <label>Name:</label>
+            <input 
+              v-model="currentWorkflow.name" 
+              @blur="saveWorkflowMeta"
+              class="ct-form-control workflow-name-input"
+              placeholder="Workflow-Name"
+            />
+          </div>
+          <div class="editable-field">
+            <label>Beschreibung:</label>
+            <input 
+              v-model="currentWorkflow.description" 
+              @blur="saveWorkflowMeta"
+              class="ct-form-control workflow-description-input"
+              placeholder="Workflow-Beschreibung"
+            />
+          </div>
         </div>
         <div class="header-actions">
           <button class="ct-btn ct-btn-secondary" @click="applyAutoLayout" title="Automatisches Layout anwenden">
             🔄 Auto-Layout
+          </button>
+          <button class="ct-btn ct-btn-secondary" @click="showValidationResults" title="Workflow validieren">
+            ✓ Validieren
           </button>
           <button class="ct-btn ct-btn-secondary" @click="showWorkflowJson" title="Workflow als JSON anzeigen">
             📋 JSON anzeigen
@@ -1563,15 +1676,35 @@ function getActionContext() {
   flex: 1;
 }
 
-.workflow-info h3 {
-  margin: 0;
-  font-size: 1.2rem;
+.workflow-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-.workflow-info p {
-  margin: 0.25rem 0 0;
-  color: #666;
+.editable-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.editable-field label {
+  font-weight: 600;
+  min-width: 100px;
   font-size: 0.9rem;
+}
+
+.workflow-name-input {
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+}
+
+.workflow-description-input {
+  font-size: 0.9rem;
+  padding: 0.25rem 0.5rem;
+  color: #666;
 }
 
 .header-actions {

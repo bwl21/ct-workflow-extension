@@ -48,8 +48,14 @@ const availableWorkflows = computed(() => {
 const currentExecution = computed(() => executionStore.currentExecution);
 
 function startWorkflow(workflowId: number) {
-  executionStore.startExecution(workflowId, userStore.currentUser.id);
-  showExecutor.value = true;
+  try {
+    executionStore.startExecution(workflowId, userStore.currentUser.id);
+    showExecutor.value = true;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    alert('❌ Workflow kann nicht gestartet werden\n\n' + errorMessage);
+    console.error('[UserView] Failed to start workflow:', error);
+  }
 }
 
 function closeExecutor() {

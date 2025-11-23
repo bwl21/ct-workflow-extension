@@ -190,7 +190,7 @@ export enum ConditionOperator {
 export interface WorkflowExecution {
   id: string;
   workflowId: number; // Backend Workflow-ID
-  currentNodeId: string;
+  currentNodeId: string | null;
   context: ExecutionContext;
   history: StepHistory[];
   status: ExecutionStatus;
@@ -204,6 +204,7 @@ export interface ExecutionContext {
   timestamp: Date;
   nodeQueue?: string[]; // Queue for sequential multi-edge execution
   joinStates?: Record<string, JoinState>; // Track JOIN node states
+  error?: string; // Error message for failed executions
 }
 
 export interface JoinState {
