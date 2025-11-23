@@ -838,6 +838,11 @@ function handleEdgeUpdate(update: { id: string; source: string; target: string; 
   }
 }
 
+function saveWorkflowMeta() {
+  if (!currentWorkflow.value) return;
+  workflowStore.updateWorkflow(currentWorkflow.value.id, currentWorkflow.value);
+}
+
 function showValidationResults() {
   const errors = validateWorkflow();
   
@@ -965,9 +970,25 @@ function getActionContext() {
         <p>Kein Workflow ausgewählt. Bitte wähle einen Workflow aus der Verwaltung.</p>
       </div>
       <div v-else class="workflow-info">
-        <div>
-          <h3>{{ currentWorkflow.name }}</h3>
-          <p>{{ currentWorkflow.description }}</p>
+        <div class="workflow-meta">
+          <div class="editable-field">
+            <label>Name:</label>
+            <input 
+              v-model="currentWorkflow.name" 
+              @blur="saveWorkflowMeta"
+              class="ct-form-control workflow-name-input"
+              placeholder="Workflow-Name"
+            />
+          </div>
+          <div class="editable-field">
+            <label>Beschreibung:</label>
+            <input 
+              v-model="currentWorkflow.description" 
+              @blur="saveWorkflowMeta"
+              class="ct-form-control workflow-description-input"
+              placeholder="Workflow-Beschreibung"
+            />
+          </div>
         </div>
         <div class="header-actions">
           <button class="ct-btn ct-btn-secondary" @click="applyAutoLayout" title="Automatisches Layout anwenden">
@@ -1655,15 +1676,35 @@ function getActionContext() {
   flex: 1;
 }
 
-.workflow-info h3 {
-  margin: 0;
-  font-size: 1.2rem;
+.workflow-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-.workflow-info p {
-  margin: 0.25rem 0 0;
-  color: #666;
+.editable-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.editable-field label {
+  font-weight: 600;
+  min-width: 100px;
   font-size: 0.9rem;
+}
+
+.workflow-name-input {
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+}
+
+.workflow-description-input {
+  font-size: 0.9rem;
+  padding: 0.25rem 0.5rem;
+  color: #666;
 }
 
 .header-actions {

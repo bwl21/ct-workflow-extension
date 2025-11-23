@@ -190,7 +190,7 @@ export enum ConditionOperator {
 export interface WorkflowExecution {
   id: string;
   workflowId: number; // Backend Workflow-ID
-  currentNodeId: string;
+  currentNodeId: string | null;
   context: ExecutionContext;
   history: StepHistory[];
   status: ExecutionStatus;

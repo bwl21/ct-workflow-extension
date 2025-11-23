@@ -103,8 +103,11 @@ function initializeFormData() {
       formData.value[field.name] = contextVars[field.name];
     }
     // Priorität 2: Spezielle Defaults
-    else if (field.type === 'multiselect') {
+    else if (field.type === 'multiselect' || field.type === FieldType.PERSON_MULTI) {
       formData.value[field.name] = [];
+    }
+    else if (field.type === FieldType.PERSON) {
+      formData.value[field.name] = null;
     }
     // Priorität 3: Leerer String für Text-Felder (defaultValue wird über interpolatedDefaults gehandhabt)
     else if (['text', 'email', 'tel', 'url', 'textarea'].includes(field.type)) {
@@ -465,7 +468,7 @@ onUnmounted(() => {
           v-if="currentWorkflow"
           :definition="currentWorkflow.definition"
           :readonly="true"
-          :current-node-id="currentExecution.currentNodeId"
+          :current-node-id="executionStore.currentNodeId"
         />
       </div>
 

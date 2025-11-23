@@ -99,18 +99,21 @@ async function execute() {
       console.log('[ManageGroupMembership] Resolved roleId (groupTypeRoleId):', roleId);
     }
 
-    // Get available fields from group data
-    const availableFields = groupData.fields || [];
-    console.log('[ManageGroupMembership] Available fields:', availableFields);
+    // Get available member fields from separate endpoint
+    const memberFieldsData: any = await churchtoolsClient.get(`/groups/${groupId}/memberfields`);
+    const availableFields = memberFieldsData || [];
+    console.log('[ManageGroupMembership] Available member fields:', availableFields);
 
     // Build fields object: { fieldId: [value] }
     const fields: Record<string, string[]> = {};
+
     for (const field of interpolatedConfig.memberFields) {
       if (!field.referenceName || !field.value) continue;
 
       // Find field by referenceName
+
       const fieldDef = availableFields.find((f: any) => 
-        f.referenceName === field.referenceName || 
+        f.field.referenceName === field.referenceName || 
         f.name === field.referenceName
       );
 
@@ -119,7 +122,7 @@ async function execute() {
         continue;
       }
 
-      const fieldId = fieldDef.id.toString();
+      const fieldId = fieldDef.field.id.toString();
       fields[fieldId] = [field.value];
       console.log(`[ManageGroupMembership] Mapped ${field.referenceName} -> ${fieldId} = ${field.value}`);
     }

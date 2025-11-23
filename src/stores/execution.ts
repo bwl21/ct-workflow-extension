@@ -9,6 +9,7 @@ export const useExecutionStore = defineStore('execution', () => {
   // State - Executions grouped by workflow
   const executionsByWorkflow = ref<Map<number, WorkflowExecution[]>>(new Map());
   const currentExecutionId = ref<string | null>(null);
+  const currentNodeId = ref<string | null>(null); // Separate reactive ref for current node
 
   // Getters
   const currentExecution = computed(() => {
@@ -111,6 +112,7 @@ export const useExecutionStore = defineStore('execution', () => {
     executionsByWorkflow.value.set(workflowId, workflowExecutions);
     
     currentExecutionId.value = execution.id;
+    currentNodeId.value = startNode.id; // Initialize reactive ref
 
     // Move to first real node
     moveToNextNode(execution.id);
@@ -313,36 +315,54 @@ export const useExecutionStore = defineStore('execution', () => {
   }
 
   function processNextFromQueue(executionId: string) {
+    console.log('[Execution] processNextFromQueue called');
+    
     let execution: WorkflowExecution | undefined;
     for (const executions of executionsByWorkflow.value.values()) {
       execution = executions.find((e) => e.id === executionId);
       if (execution) break;
     }
     
-    if (!execution) return;
+    if (!execution) {
+      console.error('[Execution] Execution not found in processNextFromQueue');
+      return;
+    }
 
     const workflowStore = useWorkflowStore();
     const workflow = workflowStore.getWorkflowById(execution.workflowId);
-    if (!workflow) return;
+    if (!workflow) {
+      console.error('[Execution] Workflow not found in processNextFromQueue');
+      return;
+    }
+
+    console.log('[Execution] Current queue:', execution.context.nodeQueue);
 
     // Check if queue exists and has items
     if (!execution.context.nodeQueue || execution.context.nodeQueue.length === 0) {
       // Queue empty, workflow complete
+      console.log('[Execution] Queue empty, completing workflow');
       execution.status = ExecutionStatus.COMPLETED;
       execution.completedAt = new Date();
+      execution.currentNodeId = null; // Clear current node when workflow completes
+      currentNodeId.value = null; // Update reactive ref
       return;
     }
 
     // Get next node from queue
     const nextNodeId = execution.context.nodeQueue.shift();
+    console.log('[Execution] Next node ID from queue:', nextNodeId);
+    
     if (!nextNodeId) return;
 
     const nextNode = workflow.definition.nodes.find((n) => n.id === nextNodeId);
     if (!nextNode) {
       // Node not found, continue with next in queue
+      console.error('[Execution] Next node not found:', nextNodeId);
       processNextFromQueue(executionId);
       return;
     }
+    
+    console.log('[Execution] Next node:', nextNode.label);
 
     // Check if next node is END
     if (nextNode.type === NodeType.END) {
@@ -383,7 +403,10 @@ export const useExecutionStore = defineStore('execution', () => {
 
     // Move to next node
     console.log('[Execution] Moving to node (no join):', nextNode.label);
+    console.log('[Execution] Setting currentNodeId to:', nextNode.id);
     execution.currentNodeId = nextNode.id;
+    currentNodeId.value = nextNode.id; // Update reactive ref
+    console.log('[Execution] currentNodeId is now:', execution.currentNodeId);
   }
 
   // handleImplicitJoin removed - we now require explicit JOIN nodes
@@ -477,6 +500,7 @@ export const useExecutionStore = defineStore('execution', () => {
 
       // Move to next node after JOIN
       execution.currentNodeId = joinNodeId;
+      currentNodeId.value = joinNodeId; // Update reactive ref
       moveToNextNode(executionId);
     } else {
       // Not all branches arrived yet (AND mode) - continue with next in queue
@@ -522,6 +546,7 @@ export const useExecutionStore = defineStore('execution', () => {
     // State
     executionsByWorkflow,
     currentExecutionId,
+    currentNodeId,
 
     // Getters
     currentExecution,
